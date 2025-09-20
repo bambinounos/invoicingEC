@@ -9,37 +9,25 @@
  */
 
 include_once DOL_DOCUMENT_ROOT . '/core/modules/DolibarrModules.class.php';
+include_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
 
 class modApproval extends DolibarrModules
 {
 	public function __construct($db)
 	{
 		parent::__construct($db);
-        // --- DIAGNOSTIC LOG ---
-        // This message MUST appear in the logs every time a page with a hook is loaded.
-        dol_syslog("--- modApproval Class Constructor Loaded ---", LOG_ERR);
-
 		$this->numero = 170000;
 		$this->rights_class = 'approval';
 		$this->family = "financial";
 		$this->module_position = 50;
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
-		$this->description = "Module for electronic invoicing compliance in Ecuador, adapted for PostgreSQL.";
+		$this->description = "Module for electronic invoicing compliance in Ecuador, adapted for PostgreSQL using ExtraFields.";
 		$this->editor_name = 'Maxim Maksimovich Isaev';
 		$this->editor_url = 'https://www.dolibarr.org';
-		$this->version = '17.0.10-diag'; // Diagnostic Version
+		$this->version = '18.0.0-final'; // Definitive final version
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->picto = 'approval.png';
-		$this->module_parts = array(
-			'triggers' => 1,
-			'hooks' => array(
-				'invoicecard',
-				'ordercard',
-				'supplierinvoicecard',
-				'supplierordercard',
-				'expeditioncard',
-			)
-		);
+		$this->module_parts = array('triggers' => 1);
 		$this->config_page_url = array("setup.php@approval");
 		$this->depends = array('modSociete');
 		$this->langfiles = array("approval");
@@ -58,6 +46,7 @@ class modApproval extends DolibarrModules
 		try {
 			$this->_create_tables_and_columns();
 			$this->_insert_initial_data();
+			$this->_create_extrafields(); // Use the standard ExtraFields system
 		} catch (Exception $e) {
 			$this->error = $e->getMessage();
 			dol_print_error($this->db, $this->error);
@@ -76,6 +65,7 @@ class modApproval extends DolibarrModules
 		dol_syslog(__METHOD__, LOG_DEBUG);
 		$this->db->begin();
 		try {
+			$this->_delete_extrafields(); // Cleanly remove ExtraFields
 			$this->_drop_tables_and_columns();
 		} catch (Exception $e) {
 			$this->error = $e->getMessage();
@@ -88,19 +78,6 @@ class modApproval extends DolibarrModules
 		}
 		$this->db->commit();
 		return 1;
-	}
-
-	public function invoicecard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
-	public function ordercard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
-	public function supplierinvoicecard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
-	public function supplierordercard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
-	public function expeditioncard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
-
-	private function _print_texte($parameters, &$object, &$action, $hookmanager)
-	{
-		dol_syslog("--- APPROVAL MODULE HOOK FUNCTION CALLED --- Context: " . $hookmanager->context, LOG_ERR);
-		print "<!-- APPROVAL HOOK WAS EXECUTED -->";
-		return 0;
 	}
 
 	private function _create_tables_and_columns()
