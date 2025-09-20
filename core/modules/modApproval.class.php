@@ -612,8 +612,8 @@ class modApproval extends DolibarrModules
 		dol_syslog(__METHOD__, LOG_DEBUG);
 		$this->db->begin();
 
-		// Create table llx_order_info using Dolibarr's DDL functions for database compatibility
-		// This will work on both MySQL and PostgreSQL
+		// --- Table Creation ---
+		// Create table llx_order_info using Dolibarr's DDL functions
 		$res = $this->db->ddl->createTable(
 			MAIN_DB_PREFIX.'order_info',
 			array(
@@ -624,7 +624,6 @@ class modApproval extends DolibarrModules
 			),
 			null, null, 'InnoDB'
 		);
-
 		if ($res < 0) {
 			$this->error = $this->db->lasterror();
 			$this->db->rollback();
@@ -643,7 +642,6 @@ class modApproval extends DolibarrModules
 			),
 			null, null, 'InnoDB'
 		);
-
 		if ($res < 0) {
 			$this->error = $this->db->lasterror();
 			$this->db->rollback();
@@ -651,7 +649,21 @@ class modApproval extends DolibarrModules
 			return -1;
 		}
 
-		// This will handle enabling permissions, menus, etc., without trying to run SQL files again.
+		// --- Initial Data Insertion ---
+		// Insert vital payment types into llx_income table
+		$this->db->query("DELETE FROM ".MAIN_DB_PREFIX."income WHERE rowid IN (1,2,3,4)");
+
+		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (1, 'Payment in cash', 'Payment in cash', 0, 'CHQ', 'cash')";
+		$this->db->query($sql);
+		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (2, 'Payment by bank transfer', 'Payment by bank transfer', 0, 'VIR', 'transfer')";
+		$this->db->query($sql);
+		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (3, 'Payment by credit card', 'Payment by credit card', 0, 'CB', 'credit card')";
+		$this->db->query($sql);
+		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (4, 'Payment by check', 'Payment by check', 0, 'LIQ', 'check')";
+		$this->db->query($sql);
+
+
+		// This will handle enabling permissions, menus, etc.
 		$result = parent::init($options, 1);
 		if ($result < 0) {
 			 $this->db->rollback();
@@ -674,9 +686,13 @@ class modApproval extends DolibarrModules
 		dol_syslog(__METHOD__, LOG_DEBUG);
 		$this->db->begin();
 
-		// Drop tables using Dolibarr's DDL functions
+		// --- Data and Table Removal ---
+		// Drop custom tables
 		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'order_info');
 		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'user_info');
+
+		// Remove the initial data inserted during activation for a clean uninstall
+		$this->db->query("DELETE FROM ".MAIN_DB_PREFIX."income WHERE rowid IN (1,2,3,4)");
 
 		// This will handle disabling permissions, menus, etc.
 		$result = parent::remove($options, 1);
