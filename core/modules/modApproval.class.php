@@ -293,82 +293,93 @@ class modApproval extends DolibarrModules
 	{
 	}
 
+	/**
+	 * Refactored function to display custom fields on cards.
+	 * This version simplifies the logic and removes a condition that was likely
+	 * preventing the fields from being displayed.
+	 */
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
 		global $db, $conf, $langs;
+
+		// Load module language files
 		$langs->load("approval");
-		if (in_array($hookmanager->context, array(
-			'invoicecard',
-			'ordercard',
-			'supplierordercard',
-			'supplierinvoicecard',
-			'expeditioncard'
-		))) {
-			if ($action == 'create' || !empty($object->id)) {
-				$db->sql_query("SELECT * FROM " . MAIN_DB_PREFIX . "order_info WHERE rowid = 1");
-				$res = $db->sql_fetch_array($db->sql_result);
-				$prefixmark = explode(",", $res['ck_prefixmark']);
-				$found = 0;
-				for ($i = 0; $i < count($prefixmark); $i++) {
-					if ($prefixmark[$i] && strpos($object->ref, $prefixmark[$i]) !== false) {
-						$found = 1;
-						break;
-					}
-				}
-				if ($found) {
-					return 0;
-				}
+
+		// This hook applies to multiple pages. We exit early if it's not one we care about.
+		$valid_contexts = array('invoicecard', 'ordercard', 'supplierordercard', 'supplierinvoicecard', 'expeditioncard');
+		if (!in_array($hookmanager->context, $valid_contexts)) {
+			return 0;
+		}
+		
+		// Add a debug comment to HTML to confirm the hook is running
+		print '<!-- Approval module hook fired for context: '.$hookmanager->context.' -->';
+
+		$var_prefix = '';
+		$table_name = '';
+
+		// Use a switch statement for cleaner logic to determine table and field prefixes
+		switch ($hookmanager->context) {
+			case 'ordercard':
+				$var_prefix = 'c_';
+				$table_name = 'commande';
+				break;
+			case 'supplierordercard':
+				$var_prefix = ''; // This context seems to have no prefix in the original logic
+				$table_name = 'commande_fournisseur';
+				break;
+			case 'supplierinvoicecard':
+				$var_prefix = 'f_';
+				$table_name = 'facture_fourn';
+				break;
+			case 'invoicecard':
+				$var_prefix = 'c_';
+				$table_name = 'facture';
+				break;
+			case 'expeditioncard':
+				$var_prefix = 'c_';
+				$table_name = 'expedition';
+				break;
+			default:
+				return 0; // Should not happen due to the in_array check above, but good practice
+		}
+
+		// Start drawing the fields
+		print '</table>'; // Close the previous table to insert our own block
+		print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
+		print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
+
+		// If we are in 'create' mode, just show empty input fields
+		if ($action == 'create') {
+			for ($i = 1; $i < 8; $i++) {
+				print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td><input name="' . $var_prefix . 'note' . $i . '" value=""></td></tr>';
+				print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td><input name="' . $var_prefix . 'name' . $i . '" value=""></td></tr>';
 			}
-			if ($action == 'create') {
-				print '</table>';
-				print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
-				print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
+		}
+		// If we are viewing an existing record, fetch and display its data
+		elseif (!empty($object->id)) {
+			$sql = "SELECT * FROM " . MAIN_DB_PREFIX . $table_name . " WHERE rowid=" . $object->id;
+			$resql = $db->query($sql);
+			if ($resql) {
+				$arr = $db->fetch_array($resql);
 				for ($i = 1; $i < 8; $i++) {
-					print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td><input name="c_note' . $i . '" value=""></td></tr>';
-					print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td><input name="c_name' . $i . '" value=""></td></tr>';
+					// Use htmlspecialchars to prevent XSS issues with displayed data
+					$note_value = isset($arr[$var_prefix . 'note' . $i]) ? htmlspecialchars($arr[$var_prefix . 'note' . $i], ENT_QUOTES, 'UTF-8') : '';
+					$name_value = isset($arr[$var_prefix . 'name' . $i]) ? htmlspecialchars($arr[$var_prefix . 'name' . $i], ENT_QUOTES, 'UTF-8') : '';
+					print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td>' . $note_value . '</td></tr>';
+					print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td>' . $name_value . '</td></tr>';
 				}
-				print '</table></div></div>';
-				print '<table class="border" width="100%">';
-			} elseif (!empty($object->id)) {
-				$this->results = array();
-				$sql = "SELECT * FROM " . MAIN_DB_PREFIX . "order_info";
-				$res = $db->sql_query($sql);
-				$this->results[] = $db->sql_fetch_array($res);
-				if ($hookmanager->context == 'ordercard') {
-					$var = 'c_';
-					$table = 'commande';
-				} elseif ($hookmanager->context == 'supplierordercard') {
-					$var = '';
-					$table = 'commande_fournisseur';
-				} elseif ($hookmanager->context == 'supplierinvoicecard') {
-					$var = 'f_';
-					$table = 'facture_fourn';
-				} elseif ($hookmanager->context == 'invoicecard') {
-					$var = 'c_';
-					$table = 'facture';
-				} elseif ($hookmanager->context == 'expeditioncard') {
-					$var = 'c_';
-					$table = 'expedition';
-				} else {
-					return 0;
-				}
-				print '</table>';
-				print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
-				print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
-				$sql = "SELECT * FROM " . MAIN_DB_PREFIX . $table . " WHERE rowid=" . $object->id;
-				$res = $db->sql_query($sql);
-				$arr = $db->sql_fetch_array($res);
-				for ($i = 1; $i < 8; $i++) {
-					print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td>' . $arr[$var . 'note' . $i] . '</td></tr>';
-					print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td>' . $arr[$var . 'name' . $i] . '</td></tr>';
-				}
-				print '</table></div></div>';
-				print '<table class="border" width="100%">';
+			} else {
+				// Show an error if data could not be fetched
+				print '<tr><td colspan="2">' . $langs->trans("ErrorFailedToFetchData") . '</td></tr>';
 			}
 		}
 
-		return 0;
+		print '</table></div></div>';
+		print '<table class="border" width="100%">'; // Re-open a table for Dolibarr to continue its layout
+
+		return 0; // OK
 	}
+
 
 	// -------------------- PRIVATE HELPER FUNCTIONS FOR DB OPERATIONS --------------------
 
