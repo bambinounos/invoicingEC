@@ -589,7 +589,7 @@ class modApproval extends DolibarrModules
 			array(137,	'10.00 %',	'10',	'0',	'9',	'2'),
 			array(138,	'20.00 %',	'20',	'0',	'10',	'2')
 		);
-
+    
 		foreach ($incomeData as $row) {
 			$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (";
 			$sql .= $row[0].",";
@@ -602,3 +602,4 @@ class modApproval extends DolibarrModules
 		}
 	}
 }
+
