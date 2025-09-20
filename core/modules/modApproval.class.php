@@ -23,7 +23,7 @@ class modApproval extends DolibarrModules
 		$this->description = "Module for electronic invoicing compliance in Ecuador, adapted for PostgreSQL.";
 		$this->editor_name = 'Maxim Maksimovich Isaev';
 		$this->editor_url = 'https://www.dolibarr.org';
-		$this->version = '17.0.7'; // Definitive final version
+		$this->version = '17.0.8'; // Definitive final version
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->picto = 'approval.png';
 		$this->module_parts = array(
@@ -72,7 +72,6 @@ class modApproval extends DolibarrModules
 		dol_syslog(__METHOD__, LOG_DEBUG);
 		$this->db->begin();
 		try {
-			$this->_cleanup_extrafields(); // IMPORTANT: Clean orphaned extrafields first
 			$this->_drop_tables_and_columns();
 		} catch (Exception $e) {
 			$this->error = $e->getMessage();
@@ -95,14 +94,40 @@ class modApproval extends DolibarrModules
 
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
-		global $langs;
+		global $langs, $db;
 		$langs->load("approval");
 		$is_edit_mode = ($action == 'create' || strpos($action, 'edit') !== false);
 
+		print '<!-- HOOK Approval START -->';
 		print '<tr class="liste_titre"><td colspan="4">'.$langs->trans("Approval").'</td></tr>';
+		
+		$context = $hookmanager->context;
+		$data = array();
+		$table_name = '';
 
-		if ($hookmanager->context == 'supplierordercard') {
-			$value = isset($object->claveacceso) ? $object->claveacceso : '';
+		// Define table mapping
+		$tables = array(
+			'ordercard' => 'commande', 
+			'supplierinvoicecard' => 'facture_fourn', 
+			'invoicecard' => 'facture', 
+			'expeditioncard' => 'expedition',
+			'supplierordercard' => 'commande_fournisseur'
+		);
+		if (isset($tables[$context])) {
+			$table_name = $tables[$context];
+		}
+
+		// If we are viewing/editing an existing object, fetch its custom data
+		if (!empty($object->id) && !empty($table_name)) {
+			$sql = "SELECT * FROM " . MAIN_DB_PREFIX . $table_name . " WHERE rowid = " . (int) $object->id;
+			$resql = $db->query($sql);
+			if ($resql) {
+				$data = $db->fetch_array($resql);
+			}
+		}
+
+		if ($context == 'supplierordercard') {
+			$value = isset($data['claveacceso']) ? $data['claveacceso'] : '';
 			if ($is_edit_mode) {
 				print '<tr class="oddeven"><td>' . $langs->trans('ClaveDeAcceso') . '</td><td colspan="3"><input class="flat" name="claveacceso" value="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '"></td></tr>';
 			} else {
@@ -110,10 +135,11 @@ class modApproval extends DolibarrModules
 			}
 		} else {
 			$prefixes = array('ordercard' => 'c_', 'supplierinvoicecard' => 'f_', 'invoicecard' => 'c_', 'expeditioncard' => 'c_');
-			$var_prefix = isset($prefixes[$hookmanager->context]) ? $prefixes[$hookmanager->context] : '';
+			$var_prefix = isset($prefixes[$context]) ? $prefixes[$context] : '';
 			for ($i = 1; $i < 8; $i++) {
 				$note_field = $var_prefix . 'note' . $i; $name_field = $var_prefix . 'name' . $i;
-				$note_value = isset($object->{$note_field}) ? $object->{$note_field} : ''; $name_value = isset($object->{$name_field}) ? $object->{$name_field} : '';
+				$note_value = isset($data[$note_field]) ? $data[$note_field] : ''; 
+				$name_value = isset($data[$name_field]) ? $data[$name_field] : '';
 				if ($is_edit_mode) {
 					print '<tr class="oddeven"><td>' . $langs->trans('Note' . $i) . '</td><td><input class="flat" name="' . $note_field . '" value="' . htmlspecialchars($note_value, ENT_QUOTES, 'UTF-8') . '"></td>';
 					print '<td>' . $langs->trans('Name' . $i) . '</td><td><input class="flat" name="' . $name_field . '" value="' . htmlspecialchars($name_value, ENT_QUOTES, 'UTF-8') . '"></td></tr>';
@@ -123,6 +149,7 @@ class modApproval extends DolibarrModules
 				}
 			}
 		}
+		print '<!-- HOOK Approval END -->';
 		return 0;
 	}
 
@@ -135,7 +162,7 @@ class modApproval extends DolibarrModules
 		$this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso', 'text');
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
 		foreach ($cols_common as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande', $col, $def); $this->db->ddl->addColumn(MAIN_DB_PREFIX.'expedition', $col, $def); }
-		$cols_facture = array_diff_key($cols_common, ['c_note7'=>0, 'c_name7'=>0, 'identification_c_type'=>0,'start_date'=>0,'end_date'=>0,'carrier'=>0]);
+		$cols_facture = array_diff_key($cols_common, ['c_note6'=>0, 'c_name6'=>0, 'c_note7'=>0, 'c_name7'=>0, 'identification_c_type'=>0,'start_date'=>0,'end_date'=>0,'carrier'=>0]);
 		foreach ($cols_facture as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture', $col, $def); }
 		$cols_fourn = ['f_note1'=>'text','f_name1'=>'text','f_note2'=>'text','f_name2'=>'text','f_note3'=>'text','f_name3'=>'text','f_note4'=>'text','f_name4'=>'text','f_note5'=>'text','f_name5'=>'text','f_note6'=>'text','f_name6'=>'text','f_note7'=>'text','f_name7'=>'text','identification_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','date_done'=>'date','date_create'=>'date','modify'=>'text'];
 		foreach ($cols_fourn as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture_fourn', $col, $def); }
@@ -237,26 +264,4 @@ class modApproval extends DolibarrModules
 			foreach ($cols as $col) { $this->db->ddl->dropColumn(MAIN_DB_PREFIX.$table, $col); }
 		}
 	}
-    
-    private function _cleanup_extrafields()
-    {
-        dol_syslog(__METHOD__, LOG_DEBUG);
-        $extrafields_to_delete = [
-            'facture' => ['approval_c_note1', 'approval_c_name1', 'approval_identification_type', 'approval_tip', 'approval_invoice_number', 'approval_warehouse', 'approval_seller', 'approval_reason_type', 'approval_ws_approval_one', 'approval_ws_approval_two', 'approval_claveacceso'],
-            'commande' => ['approval_c_note1', 'approval_c_name1', 'approval_identification_type', 'approval_tip', 'approval_invoice_number', 'approval_warehouse', 'approval_seller', 'approval_reason_type', 'approval_claveacceso'],
-            'facture_fourn' => ['approval_claveacceso'],
-            'commande_fournisseur' => ['approval_claveacceso']
-        ];
-
-        foreach ($extrafields_to_delete as $elementtype => $fieldlist) {
-            foreach ($fieldlist as $fieldname) {
-                // Delete from llx_extrafields
-                $sql_delete_extrafield = "DELETE FROM ".MAIN_DB_PREFIX."extrafields WHERE name = '".$this->db->escape($fieldname)."' AND elementtype = '".$this->db->escape($elementtype)."'";
-                $this->db->query($sql_delete_extrafield);
-
-                // Drop column from llx_*_extrafields table
-                $this->db->ddl->dropColumn(MAIN_DB_PREFIX.$elementtype."_extrafields", $fieldname);
-            }
-        }
-    }
 }
