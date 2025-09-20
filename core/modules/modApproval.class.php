@@ -99,6 +99,7 @@ class modApproval extends DolibarrModules
 				'expeditioncard',
 				'usercard',
 				'thirdpartycard'
+				// 'doActions' hook removed, will be replaced by a proper trigger
 			),
 			// Set this to 1 if module has its own cron directory
 			//'cronjobs' => 0,
@@ -291,6 +292,66 @@ class modApproval extends DolibarrModules
 	}
 	public function thirdpartycard($parameters, &$object, &$action, $hookmanager)
 	{
+	}
+
+	/**
+	 * This function is called by Dolibarr triggers.
+	 * It executes after an object has been created or modified, ensuring we have an ID to work with.
+	 */
+	public function run_trigger($action, $object, $user, $langs, $conf)
+	{
+		$context_map = array(
+			'ORDER_SUPPLIER_CREATE'   => 'supplierordercard',
+			'ORDER_SUPPLIER_MODIFY'   => 'supplierordercard',
+			'INVOICE_SUPPLIER_CREATE' => 'supplierinvoicecard',
+			'INVOICE_SUPPLIER_MODIFY' => 'supplierinvoicecard',
+			'ORDER_CREATE'            => 'ordercard',
+			'ORDER_MODIFY'            => 'ordercard',
+			'INVOICE_CREATE'          => 'invoicecard',
+			'INVOICE_MODIFY'          => 'invoicecard',
+			'SHIPMENT_CREATE'         => 'expeditioncard',
+			'SHIPMENT_MODIFY'         => 'expeditioncard'
+		);
+
+		if (isset($context_map[$action])) {
+			$context = $context_map[$action];
+
+			if ($context == 'supplierordercard') {
+				if (isset($_POST['claveacceso'])) {
+					$sql = "UPDATE " . MAIN_DB_PREFIX . "commande_fournisseur SET claveacceso = '".$this->db->escape(GETPOST('claveacceso', 'alpha'))."' WHERE rowid = " . $object->id;
+					$this->db->query($sql);
+				}
+			} else {
+				$var_prefix = '';
+				$table_name = '';
+				switch ($context) {
+					case 'ordercard':           $var_prefix = 'c_'; $table_name = 'commande'; break;
+					case 'supplierinvoicecard': $var_prefix = 'f_'; $table_name = 'facture_fourn'; break;
+					case 'invoicecard':         $var_prefix = 'c_'; $table_name = 'facture'; break;
+					case 'expeditioncard':      $var_prefix = 'c_'; $table_name = 'expedition'; break;
+				}
+
+				if ($table_name) {
+					$updates = array();
+					for ($i = 1; $i < 8; $i++) {
+						$note_field = $var_prefix . 'note' . $i;
+						$name_field = $var_prefix . 'name' . $i;
+						if (isset($_POST[$note_field])) {
+							$updates[] = $note_field . " = '" . $this->db->escape(GETPOST($note_field, 'alpha')) . "'";
+						}
+						if (isset($_POST[$name_field])) {
+							$updates[] = $name_field . " = '" . $this->db->escape(GETPOST($name_field, 'alpha')) . "'";
+						}
+					}
+					if (!empty($updates)) {
+						$sql = "UPDATE " . MAIN_DB_PREFIX . $table_name . " SET " . implode(', ', $updates) . " WHERE rowid = " . $object->id;
+						$this->db->query($sql);
+					}
+				}
+			}
+		}
+
+		return 0;
 	}
 
 	/**
