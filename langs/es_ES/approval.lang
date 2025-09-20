@@ -1,0 +1,114 @@
+# Copyright (C) 2023 Wilson Montero 
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see .
+
+#
+# Generic
+#
+
+
+# Module label 'ModuleApprovalName'
+ModuleApprovalName = Facturación Electrónica
+# Module description 'ModuleApprovalDesc'
+ModuleApprovalDesc = Módulo de facturación electrónica de SRI Ecuador para Dolibarr 17.0.3
+
+#
+# Admin page
+#
+ApprovalSetup = Approval setup
+Settings = Settings
+ApprovalSetupPage = Approval setup page
+APPROVAL_MYPARAM1 = Approval
+APPROVAL_MYPARAM1Tooltip = Approval tooltip
+APPROVAL_MYPARAM2=My param 2
+APPROVAL_MYPARAM2Tooltip=Approval Config tooltip
+
+
+#
+# About page
+#
+About = About
+ApprovalAbout = About Approval
+ApprovalAboutPage = Approval about page
+
+#
+# Sample page
+#
+MyPageName = Approval Page
+
+#
+# Sample widget
+#
+MyWidget = Approval widget
+MyWidgetDescription = Approval widget description
+
+InvoiceLists = Listas de facturas
+ApprovalLists = Listas de aprobación
+Name = Nombre
+Value = Valor
+DebitNumber = Número De Débito
+ApplicationList = Lista de aplicaciones
+ApprovalSetting = Configuración de facturación electrónica
+OrderSetting = Configuración de facturación electrónica
+Settings = Ajustes
+IdentificationType = Tipo de identificación
+IdentificationCType = Identificación Receptor
+ReasonType = Tipo de motivo
+CustomNote = Nota personalizada
+InvoiceNumber = Número de factura
+CompanyAlias = Nombre de alias (comercial, marca registrada,...)
+SpecialTaxpayerResolutionNo. = Resolución Especial del Contribuyente No.
+ObligedToKeepAccounting = Obligado a llevar la contabilidad
+Purpose = Objetivo
+ContribuyenteRegimenRIMPE = Contribuyente Regimen RIMPE
+WithholdingAgentResolutionNo. = Resolución del Agente de Retención No.
+TEST = PRUEBAS
+Production = PRODUCCIÓN
+NoteNumber = Número de nota de crédito
+Debitnote = Nota de débito
+Training = EXPERIMENTACIÓN
+SEN_1 = No se pudo crear el documento
+SEN_2 = El número de dígitos del número de factura es
+SEN_3 = Formato de factura no definido
+SEN_4 = Por favor verifique su 'Cargo'
+SEN_5 = Por favor verifique su 'Tipo de identificación' o 'ID Profesional 1'
+SEN_6 = Por favor ingrese el número de factura.
+InvoiceDebit=Nota de débito
+InvoiceDebitAsk=Debit note to correct invoice
+InvoiceDebitDesc=The <b>Debit note</b> is a negative invoice used to correct the fact that an invoice shows an amount that differs from the amount actually paid (eg the customer paid too much by mistake, or will not pay the complete amount since some products were returned).
+InvoiceDebitWithLines=Create Debit note with lines from the origin invoice
+InvoiceDebitWithPaymentRestAmount=Create Debit note with remaining unpaid of origin invoice
+InvoiceDebitLineWithPaymentRestAmount=Debit note for remaining unpaid amount
+StartdateTransport = Fecha inicio Transporte
+EnddateTransport = Fecha fin Transporte
+CreateDebitNote=Crear nota de débito
+VendorNumber=Número de comprobante
+fiscalperiod=Periodo Fiscal
+Invoicedate=Fecha de la factura
+MICROENTERPRISEREGIMETAXPAYER=CONTRIBUYENTE RÉGIMEN RIMPE
+Retention = Retención
+TrackingNumber=El número de rastreo
+Carrier=Transportadora
+Prefixmark = Marca De Prefijo
+CorrectSave = Su configuración ha sido guardada
+WsMessage = SRI WEB SERVICE NO DISPONIBLE, POR FAVOR INTENTAR MÁS TARDE
+Warehouse_no = La información del almacén es incorrecta
+imgfile = Archivo de logotipo
+p12file = Archivo de P12
+keyfile = Archivo Key.pem :
+certfile = Archivo Cert.pem :
+password = Contraseña :
+Paymentmethod = La 'Forma de pago' es incorrecta
+Warehousno = No se ha establecido el número de almacén
+NoPaymentmethod = 'Forma de pago' no está seleccionado

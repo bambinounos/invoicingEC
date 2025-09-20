@@ -1,0 +1,115 @@
+# Copyright (C) 2023 Wilson Montero 
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see .
+
+#
+# Generic
+#
+
+# Module label 'ModuleApprovalName'
+ModuleApprovalName = Electronic Billing
+# Module description 'ModuleApprovalDesc'
+ModuleApprovalDesc = SRI Ecuador's e-billing module for Dolibarr 17.0.3
+
+#
+# Admin page
+#
+ApprovalSetup = Approval setup
+Settings = Settings
+ApprovalSetupPage = Approval setup page
+APPROVAL_MYPARAM1 = Approval
+APPROVAL_MYPARAM1Tooltip = Approval tooltip
+APPROVAL_MYPARAM2=My param 2
+APPROVAL_MYPARAM2Tooltip=Approval Config tooltip
+
+
+#
+# About page
+#
+About = About
+ApprovalAbout = About Approval
+ApprovalAboutPage = Approval about page
+
+#
+# Sample page
+#
+MyPageName = Approval Page
+
+#
+# Sample widget
+#
+MyWidget = Approval widget
+MyWidgetDescription = Approval widget description
+
+InvoiceLists = Invoice Lists
+ApprovalLists = Approval Lists
+Settings = Settings
+Name = Name
+Value = Value
+ApplicationList = Application List
+ApprovalSetting = Electronic billing settings
+OrderSetting = Electronic billing settings
+Settings = Settings
+DebitNumber = Debit Number
+IdentificationType = Identification Type
+IdentificationCType = Carrier Identification Type
+ReasonType = Reason Type
+CustomNote = Custom Note
+InvoiceNumber = Invoice Number
+CompanyAlias = Alias name (commercial, trademark, ...)
+SpecialTaxpayerResolutionNo. = Special Taxpayer Resolution No.
+ObligedToKeepAccounting = Obliged To Keep Accounting
+Purpose = Purpose
+ContribuyenteRegimenRIMPE = RIMPE Regime Taxpayer
+WithholdingAgentResolutionNo. = With Holding Agent Resolution No.
+TEST = TEST
+Production = PRODUCTION
+NoteNumber = Credit Note Number
+Debitnote = Debit note
+Training = EXPERIMENTATION
+SEN_1 = The document could not be created
+SEN_2 = The number of digits in the invoice number is
+SEN_3 = Invoice format not defined
+SEN_4 = Please check your 'Job position'
+SEN_5 = Please check your 'Identification Type' and 'Professional ID 1'
+SEN_6 = Please enter the invoice number
+InvoiceDebit=Debit note
+InvoiceDebitAsk=Debit Note to correct invoice
+InvoiceDebitDesc=The <b>Debit note</b> is a negative invoice used to correct the fact that an invoice shows an amount that differs from the amount actually paid (eg the customer paid too much by mistake, or will not pay the complete amount since some products were returned).
+InvoiceDebitWithLines=Create Debit Note with lines from the origin invoice
+InvoiceDebitWithPaymentRestAmount=Create Debit Note with remaining unpaid of origin invoice
+InvoiceDebitLineWithPaymentRestAmount=Debit Note for remaining unpaid amount
+StartdateTransport = Start date Transport
+EnddateTransport = End date Transport
+CreateDebitNote=Create debit note
+VendorNumber=Comprobante Number
+fiscalperiod=Fiscal period
+Invoicedate=Invoice Date
+MICROENTERPRISEREGIMETAXPAYER=CONTRIBUYENTE RÉGIMEN RIMPE
+Retention=Retention
+TrackingNumber=Tracking Number
+Carrier=Carrier
+Prefixmark = Prefix Mark 
+CorrectSave = Your settings have been saved
+WsMessage = SRI web service is not available. Please try later
+Warehouse_no = Warehouse information is incorrect
+imgfile = Logo File
+p12file = P12 File :
+keyfile = Key.pem File :
+certfile = Cert.pem File :
+password = Password :
+Paymentmethod = The 'Payment method' is incorrect
+Warehousno = The warehouse number has not been set
+NoPaymentmethod = “Payment Method” is not selected
+

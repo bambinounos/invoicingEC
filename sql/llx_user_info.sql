@@ -1,0 +1,16 @@
+--
+--  Approval
+--
+--  @author    <isayev95117@gmail.com>
+--  @copyright 2024
+--  @license   NoLicence
+--  @version   17.0.3
+--
+CREATE TABLE llx_user_info (rowid INT NULL DEFAULT NULL)ENGINE = InnoDB;
+ALTER TABLE llx_commande_fournisseur ADD claveacceso TEXT NULL DEFAULT NULL;
+ALTER TABLE llx_user_info ADD fk_purpose INT NOT NULL DEFAULT 1 , ADD fk_invoice_number INT NULL DEFAULT NULL, ADD fk_note_number INT NULL DEFAULT NULL, ADD fk_vendor_number INT NULL DEFAULT NULL, ADD fk_debit_number INT NULL DEFAULT NULL, ADD fk_alias TEXT NULL DEFAULT NULL, ADD fk_taxpayer TEXT NULL DEFAULT NULL, ADD fk_keep TEXT NULL DEFAULT NULL, ADD fk_microenterprise TEXT NULL DEFAULT NULL, ADD fk_agent TEXT NULL DEFAULT NULL;
+ALTER TABLE llx_facture ADD c_note1 TEXT NULL DEFAULT NULL, ADD c_name1 TEXT NULL DEFAULT NULL, ADD c_note2 TEXT NULL DEFAULT NULL, ADD c_name2 TEXT NULL DEFAULT NULL, ADD c_note3 TEXT NULL DEFAULT NULL, ADD c_name3 TEXT NULL DEFAULT NULL, ADD c_note4 TEXT NULL DEFAULT NULL, ADD c_name4 TEXT NULL DEFAULT NULL, ADD c_note5 TEXT NULL DEFAULT NULL, ADD c_name5 TEXT NULL DEFAULT NULL, ADD identification_type INT NULL DEFAULT 4, ADD tip INT NULL DEFAULT NULL , ADD invoice_number INT NULL DEFAULT NULL, ADD warehouse INT NULL DEFAULT NULL, ADD seller INT NULL DEFAULT NULL, ADD reason_type INT NULL DEFAULT 3, ADD ws_approval_one TEXT NULL DEFAULT NULL, ADD ws_approval_two TEXT NULL DEFAULT NULL, ADD ws_time TIMESTAMP, ADD claveacceso TEXT NULL DEFAULT NULL, ADD ws_approval_thr TEXT NULL DEFAULT NULL, ADD ws_approval_fou TEXT NULL DEFAULT NULL, ADD ws_time_end TIMESTAMP, ADD claveacceso_end TEXT NULL DEFAULT NULL;
+ALTER TABLE llx_facture_fourn ADD f_note1 TEXT NULL DEFAULT NULL, ADD f_name1 TEXT NULL DEFAULT NULL, ADD f_note2 TEXT NULL DEFAULT NULL, ADD f_name2 TEXT NULL DEFAULT NULL, ADD f_note3 TEXT NULL DEFAULT NULL, ADD f_name3 TEXT NULL DEFAULT NULL, ADD f_note4 TEXT NULL DEFAULT NULL, ADD f_name4 TEXT NULL DEFAULT NULL, ADD f_note5 TEXT NULL DEFAULT NULL, ADD f_name5 TEXT NULL DEFAULT NULL, ADD f_note6 TEXT NULL DEFAULT NULL, ADD f_name6 TEXT NULL DEFAULT NULL, ADD f_note7 TEXT NULL DEFAULT NULL, ADD f_name7 TEXT NULL DEFAULT NULL, ADD identification_type INT NULL DEFAULT 4, ADD tip INT NULL DEFAULT NULL , ADD invoice_number INT NULL DEFAULT NULL, ADD warehouse INT NULL DEFAULT NULL, ADD seller INT NULL DEFAULT NULL, ADD reason_type INT NULL DEFAULT 3, ADD ws_approval_one TEXT NULL DEFAULT NULL, ADD ws_approval_two TEXT NULL DEFAULT NULL, ADD ws_time TIMESTAMP, ADD claveacceso TEXT NULL DEFAULT NULL, ADD ws_approval_thr TEXT NULL DEFAULT NULL, ADD ws_approval_fou TEXT NULL DEFAULT NULL, ADD ws_time_end TIMESTAMP, ADD claveacceso_end TEXT NULL DEFAULT NULL, ADD date_done DATE NULL DEFAULT NULL, ADD date_create DATE NULL DEFAULT NULL;
+ALTER TABLE llx_facture_fourn ADD modify TEXT NULL DEFAULT NULL;
+INSERT INTO llx_user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias, fk_taxpayer, fk_keep, fk_microenterprise, fk_agent) VALUES
+	(1, 1, 1, 1, 1, 1, 'Alias name', NULL, NULL, NULL, NULL);
