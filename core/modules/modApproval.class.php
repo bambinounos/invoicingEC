@@ -1,708 +1,427 @@
 <?php
-/* Copyright (C) 2004-2018  Laurent Destailleur     <eldy@users.sourceforge.net>
- * Copyright (C) 2018-2019  Nicolas ZABOURI         <info@inovea-conseil.com>
- * Copyright (C) 2019-2020  Frédéric France         <frederic.france@netlogic.fr>
- * Copyright (C) 2021-2024  Maxim Maksimovich Isaev <isayev95117@gmail.com>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- */
 
-/**
- * 	\defgroup   approval     Module Approval
- *  \brief      Approval module descriptor.
- *
- *  \file       htdocs/approval/core/modules/modApproval.class.php
- *  \ingroup    approval
- *  \brief      Description and activation file for module Approval
- */
-include_once DOL_DOCUMENT_ROOT . '/core/modules/DolibarrModules.class.php';
+require_once DOL_DOCUMENT_ROOT .'/core/modules/DolibarrModules.class.php';
 
-/**
- *  Description and activation class for module Approval
- */
 class modApproval extends DolibarrModules
 {
-	/**
-	 * Constructor. Define names, constants, directories, boxes, permissions
-	 *
-	 * @param DoliDB $db Database handler
-	 */
 	public function __construct($db)
 	{
-		global $langs, $conf;
-		$this->db = $db;
+		parent::__construct($db);
 
-		// Id for module (must be unique).
-		// Use here a free id (See in Home -> System information -> Dolibarr for list of used modules id).
-		$this->numero = 20230815; // TODO Go on page https://wiki.dolibarr.org/index.php/List_of_modules_id to reserve an id number for your module
-
-		// Key text used to identify module (for permissions, menus, etc...)
+		$this->numero = 170000;
 		$this->rights_class = 'approval';
-
-		// Family can be 'base' (core modules),'crm','financial','hr','projects','products','ecm','technic' (transverse modules),'interface' (link with external tools),'other','...'
-		// It is used to group modules by family in module setup page
-		$this->family = "other";
-
-		// Module position in the family on 2 digits ('01', '10', '20', ...)
-		$this->module_position = '90';
-
-		// Gives the possibility for the module, to provide his own family info and position of this family (Overwrite $this->family and $this->module_position. Avoid this)
-		//$this->familyinfo = array('myownfamily' => array('position' => '01', 'label' => $langs->trans("MyOwnFamily")));
-		// Module label (no space allowed), used if translation string 'ModuleApprovalName' not found (Approval is name of module).
+		$this->family = "financial";
+		$this->module_position = 50;
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
-
-		// Module description, used if translation string 'ModuleApprovalDesc' not found (Approval is name of module).
-		$this->description = "XML, PDF file generation module using Ecuador authentication service.";
-
-		// Used only if file README.md and README-LL.md not found.
-		$this->descriptionlong = "It is a module that creates an electronic invoice in XML and PDF format and issues it to the customer. Ecuador authentication service is used.";
-
-		// Author
-		$this->editor_name = 'Maxim Maximovich Isayev';
-		$this->editor_url = 'www.isayev.com';
-
-		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '17.0.3';
-		// Url to the file with your last numberversion of this module
-		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
-
-		// Key used in llx_const table to save module status enabled/disabled (where APPROVAL is value of property name of module in uppercase)
+		$this->description = "Electronic invoicing module for Ecuador";
+		$this->editor_name = "Isayev";
+		$this->editor_url = "https://www.hellbam.com";
+		$this->version = '1.0';
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
+		$this->special = 0;
+		$this->picto = 'approval.png';
 
-		// Name of image file used for this module.
-		// If file is in theme/yourtheme/img directory under name object_pictovalue.png, use this->picto='pictovalue'
-		// If file is in module/img directory under name object_pictovalue.png, use this->picto='pictovalue@module'
-		// To use a supported fa-xxx css style of font awesome, use this->picto='xxx'
-		$this->picto = 'bill';
-
-		// Define some features supported by module (triggers, login, substitutions, menus, css, etc...)
 		$this->module_parts = array(
-			// Set this to 1 if module has its own trigger directory (core/triggers)
-			'triggers' => 0,
-			// Set this to 1 if module has its own login method file (core/login)
-			'login' => 0,
-			// Set this to 1 if module has its own substitution function file (core/substitutions)
-			'substitutions' => 0,
-			// Set this to 1 if module has its own menus handler directory (core/menus)
-			'menus' => 1,
-			// Set this to 1 if module overwrite template dir (core/tpl)
-			'tpl' => 0,
-			// Set this to 1 if module has its own barcode directory (core/modules/barcode)
-			'barcode' => 0,
-			// Set this to 1 if module has its own models directory (core/modules/xxx)
-			'models' => 0,
-			// Set this to 1 if module has its own printing directory (core/modules/printing)
-			'printing' => 0,
-			// Set this to 1 if module has its own theme directory (theme)
-			'theme' => 0,
-			// Set this to relative path of css file if module has its own css file
-			'css' => array(
-				//    '/approval/css/approval.css.php',
-			),
-			// Set this to relative path of js file if module must load a js on all pages
-			'js' => array(
-				//   '/approval/js/approval.js.php',
-			),
-			// Set here all hooks context managed by module. To find available hook context, make a "grep -r '>initHooks(' *" on source code. You can also set hook context to 'all'
+			'triggers' => 1,
 			'hooks' => array(
-				//   'data' => array(
-				//       'hookcontext1',
-				//       'hookcontext2',
-				//   ),
-				//   'entity' => '0',
+				'invoicecard',
+				'ordercard',
+				'propalcard',
+				'supplierinvoicecard',
+				'supplierordercard',
+				'expeditioncard',
+				'usercard',
+				'thirdpartycard'
 			),
-			// Set this to 1 if features of module are opened to external users
-			'moduleforexternal' => 0,
 		);
 
-		// Data directories to create when module is enabled.
-		// Example: this->dirs = array("/approval/temp","/approval/subdir");
-		$this->dirs = array("/approval/temp");
+		$this->config_page_url = array("setup.php@approval");
 
-		// Config pages. Put here list of php page, stored into approval/admin directory, to use to setup module.
-		$this->config_page_url = array("../index.php@approval");
-
-		// Dependencies
-		// A condition to hide module
-		$this->hidden = false;
-		// List of module class names as string that must be enabled if this module is enabled. Example: array('always1'=>'modModuleToEnable1','always2'=>'modModuleToEnable2', 'FR1'=>'modModuleToEnableFR'...)
 		$this->depends = array();
-		$this->requiredby = array(); // List of module class names as string to disable if this one is disabled. Example: array('modModuleToDisable1', ...)
-		$this->conflictwith = array(); // List of module class names as string this module is in conflict with. Example: array('modModuleToDisable1', ...)
+		$this->neededby = array();
+		$this->phpmin = array(5, 3);
+		$this->need_dolibarr_version = array(14, 0);
 
-		// The language file dedicated to your module
-		$langs->loadLangs(array('approval'));
+		$this->langfiles = array("approval");
 
-
-		// Prerequisites
-		$this->phpmin = array(7, 0); // Minimum version of PHP required by module
-		$this->need_dolibarr_version = array(11, -3); // Minimum version of Dolibarr required by module
-
-		// Messages at activation
-		$this->warnings_activation = array(); // Warning to show when we activate module. array('always'='text') or array('FR'='textfr','MX'='textmx'...)
-		$this->warnings_activation_ext = array(); // Warning to show when we activate an external module. array('always'='text') or array('FR'='textfr','MX'='textmx'...)
-		//$this->automatic_activation = array('FR'=>'ApprovalWasAutomaticallyActivatedBecauseOfYourCountryChoice');
-		//$this->always_enabled = true;								// If true, can't be disabled
-
-		// Constants
-		// List of particular constants to add when module is enabled (key, 'chaine', value, desc, visible, 'current' or 'allentities', deleteonunactive)
-		// Example: $this->const=array(1 => array('APPROVAL_MYNEWCONST1', 'chaine', 'myvalue', 'This is a constant to add', 1),
-		//                             2 => array('APPROVAL_MYNEWCONST2', 'chaine', 'myvalue', 'This is another constant to add', 0, 'current', 1)
-		// );
-		$this->const = array();
-
-		// Some keys to add into the overwriting translation tables
-		/*$this->overwrite_translation = array(
-			'en_US:ParentCompany'=>'Parent company or reseller',
-			'fr_FR:ParentCompany'=>'Maison mère ou revendeur'
-		)*/
-
-		if (!isset($conf->approval) || !isset($conf->approval->enabled)) {
-			$conf->approval = new stdClass();
-			$conf->approval->enabled = 0;
-			chmod(DOL_DOCUMENT_ROOT . '/compta/facture/class', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/commande/class', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/compta/facture', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/commande', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/custom/approval', 0777);
-			if (file_exists(DOL_DOCUMENT_ROOT . '/compta/facture/class/facture_backup.class.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/compta/facture/class/facture_backup.class.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/compta/facture/card_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/compta/facture/card.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/compta/facture/card_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/compta/facture/list_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/compta/facture/list.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/compta/facture/list_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement_backup.class.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement.class.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement_backup.class.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/compta/paiement_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/compta/paiement.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/compta/paiement_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/commande/class/commande_backup.class.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/commande/class/commande.class.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/commande/class/commande_backup.class.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/commande/card_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/commande/card.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/commande/card_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/commande/list_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/commande/list.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/commande/list_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/core/tpl/card_presend_backup.tpl.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/core/tpl/card_presend.tpl.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/core/tpl/card_presend_backup.tpl.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/core/class/commoninvoice_backup.class.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/core/class/commoninvoice.class.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/core/class/commoninvoice_backup.class.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/core/lib/fourn_backup.lib.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/core/lib/fourn.lib.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/core/lib/fourn_backup.lib.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/fourn/class/fournisseur_backup.facture.class.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/fourn/class/fournisseur.facture.class.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/fourn/class/fournisseur_backup.facture.class.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/fourn/facture/vendor.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/fourn/facture/vendor.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/fourn/facture/card_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/fourn/facture/card.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/fourn/facture/card_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/fourn/commande/card_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/fourn/commande/card.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/fourn/commande/card_backup.php', $file);
-				}
-			}			
-			if (file_exists(DOL_DOCUMENT_ROOT . '/core/actions_sendmails_backup.inc.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/core/actions_sendmails.inc.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/core/actions_sendmails_backup.inc.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/fourn/commande/card_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/fourn/commande/card.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/fourn/commande/card_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/expedition/card_backup.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/expedition/card.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/expedition/card_backup.php', $file);
-				}
-			}
-			if (file_exists(DOL_DOCUMENT_ROOT . '/expedition/class/expedition_backup.class.php')) {
-				$file = DOL_DOCUMENT_ROOT . '/expedition/class/expedition.class.php';
-				if (!unlink($file)) {
-					echo "failed to unlink $file...\n";
-				} else {
-					@rename(DOL_DOCUMENT_ROOT . '/expedition/class/expedition_backup.class.php', $file);
-				}
-			}			
-			chmod(DOL_DOCUMENT_ROOT . '/compta/facture/class', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/commande/class', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/compta/facture', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/commande', 0777);
-			chmod(DOL_DOCUMENT_ROOT . '/custom/approval', 0777);
-		}
-
-		// Array to add new pages in new tabs
-		$this->tabs = array();
-		// Example:
-		// $this->tabs[] = array('data'=>'objecttype:+tabname1:Title1:mylangfile@approval:$user->rights->approval->read:/approval/mynewtab1.php?id=__ID__');  					// To add a new tab identified by code tabname1
-		// $this->tabs[] = array('data'=>'objecttype:+tabname2:SUBSTITUTION_Title2:mylangfile@approval:$user->rights->othermodule->read:/approval/mynewtab2.php?id=__ID__',  	// To add another new tab identified by code tabname2. Label will be result of calling all substitution functions on 'Title2' key.
-		// $this->tabs[] = array('data'=>'objecttype:-tabname:NU:conditiontoremove');                                                     										// To remove an existing tab identified by code tabname
-		//
-		// Where objecttype can be
-		// 'categories_x'	  to add a tab in category view (replace 'x' by type of category (0=product, 1=supplier, 2=customer, 3=member)
-		// 'contact'          to add a tab in contact view
-		// 'contract'         to add a tab in contract view
-		// 'group'            to add a tab in group view
-		// 'intervention'     to add a tab in intervention view
-		// 'invoice'          to add a tab in customer invoice view
-		// 'invoice_supplier' to add a tab in supplier invoice view
-		// 'member'           to add a tab in fundation member view
-		// 'opensurveypoll'	  to add a tab in opensurvey poll view
-		// 'order'            to add a tab in sale order view
-		// 'order_supplier'   to add a tab in supplier order view
-		// 'payment'		  to add a tab in payment view
-		// 'payment_supplier' to add a tab in supplier payment view
-		// 'product'          to add a tab in product view
-		// 'propal'           to add a tab in propal view
-		// 'project'          to add a tab in project view
-		// 'stock'            to add a tab in stock view
-		// 'thirdparty'       to add a tab in third party view
-		// 'user'             to add a tab in user view
-
-		// Dictionaries
-		$this->dictionaries = array();
-		/* Example:
-		$this->dictionaries=array(
-			'langs'=>'approval@approval',
-			// List of tables we want to see into dictonnary editor
-			'tabname'=>array("table1", "table2", "table3"),
-			// Label of tables
-			'tablib'=>array("Table1", "Table2", "Table3"),
-			// Request to select fields
-			'tabsql'=>array('SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.MAIN_DB_PREFIX.'table1 as f', 'SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.MAIN_DB_PREFIX.'table2 as f', 'SELECT f.rowid as rowid, f.code, f.label, f.active FROM '.MAIN_DB_PREFIX.'table3 as f'),
-			// Sort order
-			'tabsqlsort'=>array("label ASC", "label ASC", "label ASC"),
-			// List of fields (result of select to show dictionary)
-			'tabfield'=>array("code,label", "code,label", "code,label"),
-			// List of fields (list of fields to edit a record)
-			'tabfieldvalue'=>array("code,label", "code,label", "code,label"),
-			// List of fields (list of fields for insert)
-			'tabfieldinsert'=>array("code,label", "code,label", "code,label"),
-			// Name of columns with primary key (try to always name it 'rowid')
-			'tabrowid'=>array("rowid", "rowid", "rowid"),
-			// Condition to show each dictionary
-			'tabcond'=>array($conf->approval->enabled, $conf->approval->enabled, $conf->approval->enabled),
-			// Tooltip for every fields of dictionaries: DO NOT PUT AN EMPTY ARRAY
-			'tabhelp'=>array(array('code'=>$langs->trans('CodeTooltipHelp'), 'field2' => 'field2tooltip'), array('code'=>$langs->trans('CodeTooltipHelp'), 'field2' => 'field2tooltip'), ...),
-		);
-		*/
-
-		// Boxes/Widgets
-		// Add here list of php file(s) stored in approval/core/boxes that contains a class to show a widget.
-		$this->boxes = array(
-			//  0 => array(
-			//      'file' => 'approvalwidget1.php@approval',
-			//      'note' => 'Widget provided by Approval',
-			//      'enabledbydefaulton' => 'Home',
-			//  ),
-			//  ...
-		);
-
-		// Cronjobs (List of cron jobs entries to add when module is enabled)
-		// unit_frequency must be 60 for minute, 3600 for hour, 86400 for day, 604800 for week
-		$this->cronjobs = array(
-			//  0 => array(
-			//      'label' => 'MyJob label',
-			//      'jobtype' => 'method',
-			//      'class' => '/approval/class/myobject.class.php',
-			//      'objectname' => 'MyObject',
-			//      'method' => 'doScheduledJob',
-			//      'parameters' => '',
-			//      'comment' => 'Comment',
-			//      'frequency' => 2,
-			//      'unitfrequency' => 3600,
-			//      'status' => 0,
-			//      'test' => '$conf->approval->enabled',
-			//      'priority' => 50,
-			//  ),
-		);
-		// Example: $this->cronjobs=array(
-		//    0=>array('label'=>'My label', 'jobtype'=>'method', 'class'=>'/dir/class/file.class.php', 'objectname'=>'MyClass', 'method'=>'myMethod', 'parameters'=>'param1, param2', 'comment'=>'Comment', 'frequency'=>2, 'unitfrequency'=>3600, 'status'=>0, 'test'=>'$conf->approval->enabled', 'priority'=>50),
-		//    1=>array('label'=>'My label', 'jobtype'=>'command', 'command'=>'', 'parameters'=>'param1, param2', 'comment'=>'Comment', 'frequency'=>1, 'unitfrequency'=>3600*24, 'status'=>0, 'test'=>'$conf->approval->enabled', 'priority'=>50)
-		// );
-
-		// Permissions provided by this module
 		$this->rights = array();
+		$this->rights_class = 'approval';
 		$r = 0;
-		// Add here entries to declare new permissions
-		/* BEGIN MODULEBUILDER PERMISSIONS */
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", $r + 1); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Read objects of SRI'; // Permission label
-		$this->rights[$r][4] = 'E-billing';
-		$this->rights[$r][5] = 'read'; // In php code, permission will be checked by test if ($user->rights->approval->myobject->read)
+		$this->rights[$r][0] = 170001;
+		$this->rights[$r][1] = 'Read approval';
+		$this->rights[$r][2] = 'r';
+		$this->rights[$r][3] = 1;
+		$this->rights[$r][4] = 'read';
 		$r++;
-		// $this->rights[$r][0] = $this->numero . sprintf("%02d", $r + 1); // Permission id (must not be already used)
-		// $this->rights[$r][1] = 'Create/Update objects of Approval'; // Permission label
-		// $this->rights[$r][4] = 'myobject';
-		// $this->rights[$r][5] = 'write'; // In php code, permission will be checked by test if ($user->rights->approval->myobject->write)
-		// $r++;
-		// $this->rights[$r][0] = $this->numero . sprintf("%02d", $r + 1); // Permission id (must not be already used)
-		// $this->rights[$r][1] = 'Delete objects of Approval'; // Permission label
-		// $this->rights[$r][4] = 'myobject';
-		// $this->rights[$r][5] = 'delete'; // In php code, permission will be checked by test if ($user->rights->approval->myobject->delete)
-		// $r++;
-		/* END MODULEBUILDER PERMISSIONS */
+		$this->rights[$r][0] = 170002;
+		$this->rights[$r][1] = 'Create/update approval';
+		$this->rights[$r][2] = 'w';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'write';
+		$r++;
+		$this->rights[$r][0] = 170003;
+		$this->rights[$r][1] = 'Delete approval';
+		$this->rights[$r][2] = 'd';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'delete';
+		$r++;
 
-		// Main menu entries to add
 		$this->menu = array();
-		$r = 0;
-		// Add here entries to declare new menus
-		/* BEGIN MODULEBUILDER TOPMENU */
-		$this->menu[$r++] = array(
-			'fk_menu' => 'fk_mainmenu=billing', // '' if this is a top menu. For left menu, use 'fk_mainmenu=xxx' or 'fk_mainmenu=xxx,fk_leftmenu=yyy' where xxx is mainmenucode and yyy is a leftmenucode
-			'type' => 'left', // This is a Top menu entry
-			'titre' => $langs->trans('ApprovalSetting'),
-			'prefix' => img_picto('', $this->picto, 'class="paddingright pictofixedwidth valignmiddle"'),
-			'mainmenu' => 'billing',
-			'leftmenu' => '',
-			'url' => '/approval/approval_setting.php',
-			'langs' => $langs->trans('ApprovalSetting'), // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
-			'position' => 90 + $r,
-			'enabled' => 'isModEnabled("approval")', // Define condition to show or hide menu entry. Use 'isModEnabled("approval")' if entry must be visible if module is enabled.
-			'perms' => '1', // Use 'perms'=>'$user->hasRight("approval", "myobject", "read")' if you want your menu with a permission rules
-			'target' => '',
-			'user' => 2, // 0=Menu for internal users, 1=external users, 2=both
-		);
-
-		$r++;
-		$this->menu[$r++] = array(
-			'fk_menu' => 'fk_mainmenu=products', // '' if this is a top menu. For left menu, use 'fk_mainmenu=xxx' or 'fk_mainmenu=xxx,fk_leftmenu=yyy' where xxx is mainmenucode and yyy is a leftmenucode
-			'type' => 'left', // This is a Top menu entry
-			'titre' => $langs->trans('OrderSetting'),
-			'prefix' => img_picto('', $this->picto, 'class="paddingright pictofixedwidth valignmiddle"'),
-			'mainmenu' => 'products',
-			'leftmenu' => '',
-			'url' => '/approval/order_setting.php',
-			'langs' => $langs->trans('OrderSetting'), // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
-			'position' => 90 + $r,
-			'enabled' => 'isModEnabled("approval")', // Define condition to show or hide menu entry. Use 'isModEnabled("approval")' if entry must be visible if module is enabled.
-			'perms' => '1', // Use 'perms'=>'$user->hasRight("approval", "myobject", "read")' if you want your menu with a permission rules
-			'target' => '',
-			'user' => 2, // 0=Menu for internal users, 1=external users, 2=both
-		);
-
-		/* END MODULEBUILDER TOPMENU */
-		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT
-		$this->menu[$r++]=array(
-			'fk_menu'=>'fk_mainmenu=approval',      // '' if this is a top menu. For left menu, use 'fk_mainmenu=xxx' or 'fk_mainmenu=xxx,fk_leftmenu=yyy' where xxx is mainmenucode and yyy is a leftmenucode
-			'type'=>'left',                          // This is a Left menu entry
-			'titre'=>'MyObject',
-			'prefix' => img_picto('', $this->picto, 'class="paddingright pictofixedwidth valignmiddle"'),
-			'mainmenu'=>'approval',
-			'leftmenu'=>'myobject',
-			'url'=>'/approval/approvalindex.php',
-			'langs'=>'approval@approval',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
-			'position'=>1000+$r,
-			'enabled'=>'isModEnabled("approval")', // Define condition to show or hide menu entry. Use 'isModEnabled("approval")' if entry must be visible if module is enabled.
-			'perms'=>'$user->hasRight("approval", "myobject", "read")',
-			'target'=>'',
-			'user'=>2,				                // 0=Menu for internal users, 1=external users, 2=both
-		);
-		$this->menu[$r++]=array(
-			'fk_menu'=>'fk_mainmenu=approval,fk_leftmenu=myobject',	    // '' if this is a top menu. For left menu, use 'fk_mainmenu=xxx' or 'fk_mainmenu=xxx,fk_leftmenu=yyy' where xxx is mainmenucode and yyy is a leftmenucode
-			'type'=>'left',			                // This is a Left menu entry
-			'titre'=>'List_MyObject',
-			'mainmenu'=>'approval',
-			'leftmenu'=>'approval_myobject_list',
-			'url'=>'/approval/myobject_list.php',
-			'langs'=>'approval@approval',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
-			'position'=>1000+$r,
-			'enabled'=>'isModEnabled("approval")', // Define condition to show or hide menu entry. Use 'isModEnabled("approval")' if entry must be visible if module is enabled.
-			'perms'=>'$user->hasRight("approval", "myobject", "read")'
-			'target'=>'',
-			'user'=>2,				                // 0=Menu for internal users, 1=external users, 2=both
-		);
-		$this->menu[$r++]=array(
-			'fk_menu'=>'fk_mainmenu=approval,fk_leftmenu=myobject',	    // '' if this is a top menu. For left menu, use 'fk_mainmenu=xxx' or 'fk_mainmenu=xxx,fk_leftmenu=yyy' where xxx is mainmenucode and yyy is a leftmenucode
-			'type'=>'left',			                // This is a Left menu entry
-			'titre'=>'New_MyObject',
-			'mainmenu'=>'approval',
-			'leftmenu'=>'approval_myobject_new',
-			'url'=>'/approval/myobject_card.php?action=create',
-			'langs'=>'approval@approval',	        // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
-			'position'=>1000+$r,
-			'enabled'=>'isModEnabled("approval")', // Define condition to show or hide menu entry. Use 'isModEnabled("approval")' if entry must be visible if module is enabled. Use '$leftmenu==\'system\'' to show if leftmenu system is selected.
-			'perms'=>'$user->hasRight("approval", "myobject", "write")'
-			'target'=>'',
-			'user'=>2,				                // 0=Menu for internal users, 1=external users, 2=both
-		);
-		END MODULEBUILDER LEFTMENU MYOBJECT */
-		// Exports profiles provided by this module
-		$r = 1;
-		/* BEGIN MODULEBUILDER EXPORT MYOBJECT */
-		/*
-		$langs->load("approval@approval");
-		$this->export_code[$r]=$this->rights_class.'_'.$r;
-		$this->export_label[$r]='MyObjectLines';	// Translation key (used only if key ExportDataset_xxx_z not found)
-		$this->export_icon[$r]='myobject@approval';
-		// Define $this->export_fields_array, $this->export_TypeFields_array and $this->export_entities_array
-		$keyforclass = 'MyObject'; $keyforclassfile='/approval/class/myobject.class.php'; $keyforelement='myobject@approval';
-		include DOL_DOCUMENT_ROOT.'/core/commonfieldsinexport.inc.php';
-		//$this->export_fields_array[$r]['t.fieldtoadd']='FieldToAdd'; $this->export_TypeFields_array[$r]['t.fieldtoadd']='Text';
-		//unset($this->export_fields_array[$r]['t.fieldtoremove']);
-		//$keyforclass = 'MyObjectLine'; $keyforclassfile='/approval/class/myobject.class.php'; $keyforelement='myobjectline@approval'; $keyforalias='tl';
-		//include DOL_DOCUMENT_ROOT.'/core/commonfieldsinexport.inc.php';
-		$keyforselect='myobject'; $keyforaliasextra='extra'; $keyforelement='myobject@approval';
-		include DOL_DOCUMENT_ROOT.'/core/extrafieldsinexport.inc.php';
-		//$keyforselect='myobjectline'; $keyforaliasextra='extraline'; $keyforelement='myobjectline@approval';
-		//include DOL_DOCUMENT_ROOT.'/core/extrafieldsinexport.inc.php';
-		//$this->export_dependencies_array[$r] = array('myobjectline'=>array('tl.rowid','tl.ref')); // To force to activate one or several fields if we select some fields that need same (like to select a unique key if we ask a field of a child to avoid the DISTINCT to discard them, or for computed field than need several other fields)
-		//$this->export_special_array[$r] = array('t.field'=>'...');
-		//$this->export_examplevalues_array[$r] = array('t.field'=>'Example');
-		//$this->export_help_array[$r] = array('t.field'=>'FieldDescHelp');
-		$this->export_sql_start[$r]='SELECT DISTINCT ';
-		$this->export_sql_end[$r]  =' FROM '.MAIN_DB_PREFIX.'myobject as t';
-		//$this->export_sql_end[$r]  =' LEFT JOIN '.MAIN_DB_PREFIX.'myobject_line as tl ON tl.fk_myobject = t.rowid';
-		$this->export_sql_end[$r] .=' WHERE 1 = 1';
-		$this->export_sql_end[$r] .=' AND t.entity IN ('.getEntity('myobject').')';
-		$r++; */
-		/* END MODULEBUILDER EXPORT MYOBJECT */
-
-		// Imports profiles provided by this module
-		$r = 1;
-		/* BEGIN MODULEBUILDER IMPORT MYOBJECT */
-		/*
-		$langs->load("approval@approval");
-		$this->import_code[$r]=$this->rights_class.'_'.$r;
-		$this->import_label[$r]='MyObjectLines';	// Translation key (used only if key ExportDataset_xxx_z not found)
-		$this->import_icon[$r]='myobject@approval';
-		$this->import_tables_array[$r] = array('t' => MAIN_DB_PREFIX.'approval_myobject', 'extra' => MAIN_DB_PREFIX.'approval_myobject_extrafields');
-		$this->import_tables_creator_array[$r] = array('t' => 'fk_user_author'); // Fields to store import user id
-		$import_sample = array();
-		$keyforclass = 'MyObject'; $keyforclassfile='/approval/class/myobject.class.php'; $keyforelement='myobject@approval';
-		include DOL_DOCUMENT_ROOT.'/core/commonfieldsinimport.inc.php';
-		$import_extrafield_sample = array();
-		$keyforselect='myobject'; $keyforaliasextra='extra'; $keyforelement='myobject@approval';
-		include DOL_DOCUMENT_ROOT.'/core/extrafieldsinimport.inc.php';
-		$this->import_fieldshidden_array[$r] = array('extra.fk_object' => 'lastrowid-'.MAIN_DB_PREFIX.'approval_myobject');
-		$this->import_regex_array[$r] = array();
-		$this->import_examplevalues_array[$r] = array_merge($import_sample, $import_extrafield_sample);
-		$this->import_updatekeys_array[$r] = array('t.ref' => 'Ref');
-		$this->import_convertvalue_array[$r] = array(
-			't.ref' => array(
-				'rule'=>'getrefifauto',
-				'class'=>(empty($conf->global->APPROVAL_MYOBJECT_ADDON) ? 'mod_myobject_standard' : $conf->global->APPROVAL_MYOBJECT_ADDON),
-				'path'=>"/core/modules/commande/".(empty($conf->global->APPROVAL_MYOBJECT_ADDON) ? 'mod_myobject_standard' : $conf->global->APPROVAL_MYOBJECT_ADDON).'.php'
-				'classobject'=>'MyObject',
-				'pathobject'=>'/approval/class/myobject.class.php',
-			),
-			't.fk_soc' => array('rule' => 'fetchidfromref', 'file' => '/societe/class/societe.class.php', 'class' => 'Societe', 'method' => 'fetch', 'element' => 'ThirdParty'),
-			't.fk_user_valid' => array('rule' => 'fetchidfromref', 'file' => '/user/class/user.class.php', 'class' => 'User', 'method' => 'fetch', 'element' => 'user'),
-			't.fk_mode_reglement' => array('rule' => 'fetchidfromcodeorlabel', 'file' => '/compta/paiement/class/cpaiement.class.php', 'class' => 'Cpaiement', 'method' => 'fetch', 'element' => 'cpayment'),
-		);
-		$r++; */
-		/* END MODULEBUILDER IMPORT MYOBJECT */
 	}
 
-	/**
-	 *  Function called when module is enabled.
-	 *  The init function add constants, boxes, permissions and menus (defined in constructor) into Dolibarr database.
-	 *  It also creates data directories
-	 *
-	 *  @param      string  $options    Options when enabling module ('', 'noboxes')
-	 *  @return     int             	1 if OK, 0 if KO
-	 */
 	public function init($options = '')
 	{
-		// First, remove any previous installation to start clean
-		$this->remove($options);
-
 		dol_syslog(__METHOD__, LOG_DEBUG);
+		$this->remove($options); // Start with a clean uninstall
 		$this->db->begin();
 
-		// --- Table Creation ---
-		// Create table llx_order_info using Dolibarr's DDL functions
-		$res = $this->db->ddl->createTable(
-			MAIN_DB_PREFIX.'order_info',
-			array(
-				'rowid'        => 'integer auto_increment PRIMARY KEY',
-				'fk_order'     => 'integer NOT NULL',
-				'approve_user' => 'integer',
-				'approve_date' => 'datetime'
-			),
-			null, null, 'InnoDB'
-		);
-		if ($res < 0) {
-			$this->error = $this->db->lasterror();
+		try {
+			// 1. Create llx_order_info table with all columns
+			$this->db->ddl->createTable(
+				MAIN_DB_PREFIX.'order_info',
+				array(
+					'rowid'             => 'integer auto_increment PRIMARY KEY',
+					'ck_purpose'        => 'integer NOT NULL DEFAULT 1',
+					'ck_invoice_number' => 'integer',
+					'ck_note_number'    => 'integer',
+					'ck_alias'          => 'text',
+					'ck_taxpayer'       => 'text',
+					'ck_keep'           => 'text',
+					'ck_microenterprise'=> 'text',
+					'ck_agent'          => 'text',
+					'ck_prefixmark'     => 'text'
+				),
+				null, null, 'InnoDB'
+			);
+
+			// 2. Create llx_user_info table
+			$this->db->ddl->createTable(
+				MAIN_DB_PREFIX.'user_info',
+				array(
+					'rowid'      => 'integer auto_increment PRIMARY KEY',
+					'fk_user'    => 'integer NOT NULL',
+					'is_approve' => 'integer DEFAULT 0',
+					'is_order'   => 'integer DEFAULT 0'
+				),
+				null, null, 'InnoDB'
+			);
+			
+			// 3. Create llx_vendor table
+			$this->db->ddl->createTable(
+				MAIN_DB_PREFIX.'vendor',
+				array(
+					'rowid' => 'integer auto_increment PRIMARY KEY',
+					'a'     => 'text NOT NULL',
+					'b'     => 'text NOT NULL',
+					'c'     => 'text NOT NULL',
+					'd'     => 'double(24,2) DEFAULT 0',
+					'e'     => 'double(24,2) DEFAULT 0',
+					'f'     => 'double(24,2) DEFAULT 0',
+					'g'     => 'text NOT NULL',
+					'h'     => 'date',
+					'i'     => 'text NOT NULL',
+					'j'     => 'text NOT NULL',
+					'id'    => 'integer'
+				),
+				null, null, 'InnoDB'
+			);
+
+			// 4. Add custom fields to llx_commande
+			$this->_add_columns_to_table(MAIN_DB_PREFIX.'commande');
+			
+			// 5. Add custom fields to llx_expedition
+			$this->_add_columns_to_table(MAIN_DB_PREFIX.'expedition');
+			
+			// 6. Recreate and populate llx_income for Ecuadorian tax codes
+			$this->_recreate_and_populate_income_table();
+
+			// 7. Insert initial settings into llx_order_info
+			$sql = "INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_taxpayer, ck_keep, ck_microenterprise, ck_agent, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', NULL, NULL, NULL, NULL,'DON-,MANN-,/')";
+			$this->db->query($sql);
+
+		} catch (Exception $e) {
+			$this->error = $e->getMessage();
+			dol_print_error($this->db, $this->error);
 			$this->db->rollback();
-			dol_print_error($this->db, 'Failed to create table llx_order_info. '.$this->error);
 			return -1;
 		}
 
-		// Create table llx_user_info
-		$res = $this->db->ddl->createTable(
-			MAIN_DB_PREFIX.'user_info',
-			array(
-				'rowid'      => 'integer auto_increment PRIMARY KEY',
-				'fk_user'    => 'integer NOT NULL',
-				'is_approve' => 'integer DEFAULT 0',
-				'is_order'   => 'integer DEFAULT 0'
-			),
-			null, null, 'InnoDB'
-		);
-		if ($res < 0) {
-			$this->error = $this->db->lasterror();
+		// Activate standard module components (menus, permissions, etc.)
+		if (parent::init($options) < 0) {
 			$this->db->rollback();
-			dol_print_error($this->db, 'Failed to create table llx_user_info. '.$this->error);
 			return -1;
-		}
-
-		// --- Initial Data Insertion ---
-		// Insert vital payment types into llx_income table
-		$this->db->query("DELETE FROM ".MAIN_DB_PREFIX."income WHERE rowid IN (1,2,3,4)");
-
-		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (1, 'Payment in cash', 'Payment in cash', 0, 'CHQ', 'cash')";
-		$this->db->query($sql);
-		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (2, 'Payment by bank transfer', 'Payment by bank transfer', 0, 'VIR', 'transfer')";
-		$this->db->query($sql);
-		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (3, 'Payment by credit card', 'Payment by credit card', 0, 'CB', 'credit card')";
-		$this->db->query($sql);
-		$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (4, 'Payment by check', 'Payment by check', 0, 'LIQ', 'check')";
-		$this->db->query($sql);
-
-
-		// This will handle enabling permissions, menus, etc.
-		$result = parent::init($options, 1);
-		if ($result < 0) {
-			 $this->db->rollback();
-			 return -1;
 		}
 
 		$this->db->commit();
 		return 1;
 	}
-	/**
-	 *  Function called when module is disabled.
-	 *  Remove from database constants, boxes and permissions from Dolibarr database.
-	 *  Data directories are not deleted
-	 *
-	 *  @param      string	$options    Options when enabling module ('', 'noboxes')
-	 *  @return     int                 1 if OK, 0 if KO
-	 */
+
 	public function remove($options = '')
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 		$this->db->begin();
 
-		// --- Data and Table Removal ---
-		// Drop custom tables
-		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'order_info');
-		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'user_info');
+		try {
+			// Drop custom tables
+			$this->db->ddl->dropTable(MAIN_DB_PREFIX.'order_info');
+			$this->db->ddl->dropTable(MAIN_DB_PREFIX.'user_info');
+			$this->db->ddl->dropTable(MAIN_DB_PREFIX.'vendor');
+			$this->db->ddl->dropTable(MAIN_DB_PREFIX.'income');
 
-		// Remove the initial data inserted during activation for a clean uninstall
-		$this->db->query("DELETE FROM ".MAIN_DB_PREFIX."income WHERE rowid IN (1,2,3,4)");
+			// Remove custom columns from Dolibarr core tables
+			$this->_drop_columns_from_table(MAIN_DB_PREFIX.'commande');
+			$this->_drop_columns_from_table(MAIN_DB_PREFIX.'expedition');
 
-		// This will handle disabling permissions, menus, etc.
-		$result = parent::remove($options, 1);
-        if ($result < 0) {
-            $this->db->rollback();
-            return -1;
-        }
+		} catch (Exception $e) {
+			$this->error = $e->getMessage();
+			dol_print_error($this->db, $this->error);
+			$this->db->rollback();
+			return -1;
+		}
+
+		// Deactivate standard module components
+		if (parent::remove($options) < 0) {
+			$this->db->rollback();
+			return -1;
+		}
 
 		$this->db->commit();
 		return 1;
 	}
 
+	/**
+	 * Helper function to add custom columns to a table
+	 * @param string $tableName The name of the table to alter
+	 */
+	private function _add_columns_to_table($tableName)
+	{
+		$columns = array(
+			'c_note1' => 'text', 'c_name1' => 'text',
+			'c_note2' => 'text', 'c_name2' => 'text',
+			'c_note3' => 'text', 'c_name3' => 'text',
+			'c_note4' => 'text', 'c_name4' => 'text',
+			'c_note5' => 'text', 'c_name5' => 'text',
+			'c_note6' => 'text', 'c_name6' => 'text',
+			'c_note7' => 'text', 'c_name7' => 'text',
+			'identification_type' => 'integer DEFAULT 4',
+			'identification_c_type' => 'integer DEFAULT 4',
+			'tip' => 'integer',
+			'invoice_number' => 'integer',
+			'warehouse' => 'integer',
+			'seller' => 'integer',
+			'reason_type' => 'integer DEFAULT 3',
+			'ws_approval_one' => 'text',
+			'ws_approval_two' => 'text',
+			'ws_time' => 'datetime',
+			'claveacceso' => 'text',
+			'ws_approval_thr' => 'text',
+			'ws_approval_fou' => 'text',
+			'ws_time_end' => 'datetime',
+			'claveacceso_end' => 'text',
+			'start_date' => 'date',
+			'end_date' => 'date',
+			'carrier' => 'integer'
+		);
+
+		foreach ($columns as $colName => $colDef) {
+			$this->db->ddl->addColumn($tableName, $colName, $colDef);
+		}
+	}
+	
+	/**
+	 * Helper function to drop custom columns from a table
+	 * @param string $tableName The name of the table to alter
+	 */
+	private function _drop_columns_from_table($tableName)
+	{
+		$columns = array(
+			'c_note1', 'c_name1', 'c_note2', 'c_name2', 'c_note3', 'c_name3',
+			'c_note4', 'c_name4', 'c_note5', 'c_name5', 'c_note6', 'c_name6',
+			'c_note7', 'c_name7', 'identification_type', 'identification_c_type',
+			'tip', 'invoice_number', 'warehouse', 'seller', 'reason_type',
+			'ws_approval_one', 'ws_approval_two', 'ws_time', 'claveacceso',
+			'ws_approval_thr', 'ws_approval_fou', 'ws_time_end', 'claveacceso_end',
+			'start_date', 'end_date', 'carrier'
+		);
+
+		foreach ($columns as $colName) {
+			$this->db->ddl->dropColumn($tableName, $colName);
+		}
+	}
+	
+	/**
+	 * Helper function to recreate and populate the llx_income table
+	 */
+	private function _recreate_and_populate_income_table()
+	{
+		// Drop if exists
+		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'income');
+
+		// Create the new structure
+		$this->db->ddl->createTable(
+			MAIN_DB_PREFIX.'income',
+			array(
+				'rowid'  => 'integer auto_increment PRIMARY KEY',
+				'detail' => 'text NOT NULL',
+				'value'  => 'text NOT NULL',
+				'form'   => 'text NOT NULL',
+				'code'   => 'text NOT NULL',
+				'type'   => 'text NOT NULL'
+			),
+			null, null, 'InnoDB'
+		);
+
+		// Populate with the 138 entries for Ecuadorian tax codes
+		$incomeData = array(
+			array(1,'Honorarios profesionales y demás pagos por servicios relacionados con el título profesional','10','303','303','1'),
+			array(2,'Servicios profesionales prestados por sociedades residentes','3','3030','303A','1'),
+			array(3,'Servicios predomina el intelecto no relacionados con el título profesional','10','304','304','1'),
+			array(4,'Comisiones y demás pagos por servicios predomina intelecto no relacionados con el título profesional','10','304','304A','1'),
+			array(5,'Pagos a notarios y registradores de la propiedad y mercantil por sus actividades ejercidas como tales','10','304','304B','1'),
+			array(6,'Pagos a deportistas, entrenadores, árbitros, miembros del cuerpo técnico por sus actividades ejercidas como tales','8','304','304C','1'),
+			array(7,'Pagos a artistas por sus actividades ejercidas como tales','8','304','304D','1'),
+			array(8,'Honorarios y demás pagos por servicios de docencia','10','304','304E','1'),
+			array(9,'Servicios predomina la mano de obra','2','307','307','1'),
+			array(10,'Utilización o aprovechamiento de la imagen o renombre (personas naturales, sociedades," influencers")','10','308','308','1'),
+			array(11,'Servicios prestados por medios de comunicación y agencias de publicidad','2.75','309','309','1'),
+			array(12,'Servicio de transporte privado de pasajeros o transporte público o privado de carga','1','310','310','1'),
+			array(13,'Pagos a través de liquidación de compra (nivel cultural o rusticidad)','2','311','311','1'),
+			array(14,'Transferencia de bienes muebles de naturaleza corporal','1.75','312','312','1'),
+			array(15,'COMPRAS AL PRODUCTOR: de bienes de origen bioacuático, forestal y los descritos  el art.27.1 de LRTI','1','3120','312A','1'),
+			array(16,'COMPRAS AL COMERCIALIZADOR: de bienes de origen bioacuático, forestal y los descritos  el art.27.1 de LRTI','1.75','3121','312C','1'),
+			array(17,'Regalías por concepto de franquicias de acuerdo al Código INGENIOS (COESCCI) - pago a personas naturales','10','314','314A','1'),
+			array(18,'Cánones, derechos de autor,  marcas, patentes y similares de acuerdo  al Código INGENIOS (COESCCI) – pago a personas naturales','10','314','314B','1'),
+			array(19,'Regalías por concepto de franquicias de acuerdo al Código INGENIOS (COESCCI) - pago a sociades','10','314','314C','1'),
+			array(20,'Cánones, derechos de autor,  marcas, patentes y similares de acuerdo  al Código INGENIOS (COESCCI)','10','314','314D','1'),
+			array(21,'Cuotas de arrendamiento mercantil (prestado por sociedades), inclusive la de opción de compra','2','319','319','1'),
+			array(22,'Arrendamiento bienes inmuebles','10','320','320','1'),
+			array(23,'Seguros y reaseguros (primas y cesiones)','1','322','322','1'),
+			array(24,'Rendimientos financieros pagados a naturales y sociedades  (No a IFIs)','2','323','323','1'),
+			array(25,'Rendimientos financieros: depósitos Cta. Corriente','2','323','323A','1'),
+			array(26,'Rendimientos financieros:  depósitos Cta. Ahorros Sociedades','2','323','323B1','1'),
+			array(27,'Rendimientos financieros: depósito a plazo fijo  gravados','2','323','323E','1'),
+			array(28,'Rendimientos financieros: depósito a plazo fijo exentos','0','332','323E2','1'),
+			array(29,'Rendimientos financieros: operaciones de reporto - repos','2','323','323F','1'),
+			array(30,'Inversiones (captaciones) rendimientos distintos de aquellos pagados a IFIs','2','323','323G','1'),
+			array(31,'Rendimientos financieros: obligaciones','2','323','323H','1'),
+			array(32,'Rendimientos financieros: bonos convertible en acciones','2','323','323I','1'),
+			array(33,'Rendimientos financieros: Inversiones en títulos valores en renta fija gravados','2','323','323M','1'),
+			array(34,'Rendimientos financieros: Inversiones en títulos valores en renta fija exentos','0','332','323N','1'),
+			array(35,'Intereses y demás rendimientos financieros pagados a bancos y otras entidades sometidas al control de la Superintendencia de Bancos y de la Economía Popular y Solidaria','0','332','323O','1'),
+			array(36,'Intereses pagados por entidades del sector público a favor de sujetos pasivos','2','323','323P','1'),
+			array(37,'Otros intereses y rendimientos financieros gravados','2','323','323Q','1'),
+			array(38,'Otros intereses y rendimientos financieros exentos','0','332','323R','1'),
+			array(39,'Pagos y créditos en cuenta efectuados por el BCE y los depósitos centralizados de valores, en calidad de intermediarios, a instituciones del sistema financiero por cuenta de otras personas naturales y sociedades','2','323','323S','1'),
+			array(40,'Rendimientos financieros originados en la deuda pública ecuatoriana','0','332','323T','1'),
+			array(41,'Rendimientos financieros originados en títulos valores de obligaciones de 360 días o más para el financiamiento de proyectos públicos en asociación público-privada','0','332','323U','1'),
+			array(42,'Intereses y comisiones en operaciones de crédito entre instituciones del sistema financiero y entidades economía popular y solidaria.','1','324','324A','1'),
+			array(43,'Inversiones entre instituciones del sistema financiero y entidades economía popular y solidaria','1','324','324B','1'),
+			array(44,'Pagos y créditos en cuenta efectuados por el BCE y los depósitos centralizados de valores, en calidad de intermediarios, a instituciones del sistema financiero por cuenta de otras instituciones del sistema financiero','1','324','324C','1'),
+			array(45,'Anticipo dividendos','22 ó 25','325','325','1'),
+			array(46,'Préstamos accionistas, beneficiarios o partícipes residentes o establecidos en el Ecuador','22 ó 25','325','325A','1'),
+			array(47,'Dividendos distribuidos que correspondan al impuesto a la renta único establecido en el art. 27 de la LRTI','Hasta 25 y conforme la Resolución NAC-DGERCGC20-000000013','326','326','1'),
+			array(48,'Dividendos distribuidos a personas naturales residentes','Hasta 25 y conforme la Resolución NAC-DGERCGC20-000000013','327','327','1'),
+			array(49,'Dividendos distribuidos a sociedades residentes','0','328','328','1'),
+			array(50,'Dividendos distribuidos a fideicomisos residentes','0','329','329','1'),
+			array(51,'Dividendos en acciones (capitalización de utilidades)','0','331','331','1'),
+			array(52,'Otras compras de bienes y servicios no sujetas a retención (incluye régimen RIMPE - Negocios Populares para este caso aplica con cualquier forma de pago inclusive los pagos que deban realizar las tarjetas de crédito/débito)','0','332','332','1'),
+			array(53,'Compra de bienes inmuebles','0','332','332B','1'),
+			array(54,'Transporte público de pasajeros','0','332','332C','1'),
+			array(55,'Pagos en el país por transporte de pasajeros o transporte internacional de carga, a compañías nacionales o extranjeras de aviación o marítimas','0','332','332D','1'),
+			array(56,'Valores entregados por las cooperativas de transporte a sus socios','0','332','332E','1'),
+			array(57,'Compraventa de divisas distintas al dólar de los Estados Unidos de América','0','332','332F','1'),
+			array(58,'Pagos con tarjeta de crédito','0','332','332G','1'),
+			array(59,'Pago al exterior tarjeta de crédito reportada por la Emisora de tarjeta de crédito, solo RECAP','0','332','332H','1'),
+			array(60,'Pago a través de convenio de debito (Clientes IFI`s)','0','332','332I','1'),
+			array(61,'Ganancia en la enajenación de derechos representativos de capital u otros derechos que permitan la exploración, explotación, concesión o similares de sociedades, que se coticen en bolsa de valores del Ecuador','10','333','333','1'),
+			array(62,'Contraprestación producida por la enajenación de derechos representativos de capital u otros derechos que permitan la exploración, explotación, concesión o similares de sociedades, no cotizados en bolsa de valores del Ecuador','1','334','334','1'),
+			array(63,'Loterías, rifas, pronosticos deportivos, apuestas y similares','15','335','335','1'),
+			array(64,'Venta de combustibles a comercializadoras','2/mil','336','336','1'),
+			array(65,'Venta de combustibles a distribuidores','3/mil','337','337','1'),
+			array(66,'Producción y venta local de banano producido o no por el mismo sujeto pasivo','1 - 2','3380','338','1'),
+			array(67,'Impuesto único a la exportación de banano','3','3400','340','1'),
+			array(68,'Otras retenciones aplicables el 1% (incluye régimen RIMPE - Emprendedores, para este caso aplica con cualquier forma de pago inclusive los pagos que deban realizar las tarjetas de crédito/débito)','1','343','343','1'),
+			array(69,'Energía eléctrica','1','343','343A','1'),
+			array(70,'Actividades de construcción de obra material inmueble, urbanización, lotización o actividades similares','1.75%','346','343B','1'),
+			array(71,'Recepción de botellas plásticas no retornables de PET','2','343','343C','1'),
+			array(72,'Otras retenciones aplicables el 2,75%','2.75','3440','3440','1'),
+			array(73,'Pago local tarjeta de crédito /débito reportada por la Emisora de tarjeta de crédito / entidades del sistema financiero','2','344','344A','1'),
+			array(74,'Adquisición de sustancias minerales dentro del territorio nacional','2','344','344B','1'),
+			array(75,'Otras retenciones aplicables el 8%','8','345','345','1'),
+			array(76,'Otras retenciones aplicables a otros porcentajes','varios porcentajes','346','346','1'),
+			array(77,'Otras ganancias de capital distintas de enajenación de derechos representativos de capital','varios porcentajes','346','346A','1'),
+			array(78,'Donaciones en dinero -Impuesto a la donaciones','Según art 36 LRTI literal d)','346','346B','1'),
+			array(79,'Retención a cargo del propio sujeto pasivo por la exportación de concentrados y/o elementos metálicos','0 ó 10','346','346C','1'),
+			array(80,'Retención a cargo del propio sujeto pasivo por la comercialización de productos forestales','0 ó 10','346','346D','1'),
+			array(81,'Impuesto único a ingresos provenientes de actividades agropecuarias en etapa de producción / comercialización local o exportación','1','348','348','1'),
+			array(82,'Impuesto a la renta único sobre los ingresos percibidos por los operadores de pronósticos deportivos (vigente desde 01/07/2024)','15','3480','3480','1'),
+			array(83,'Autorretenciones Sociedades Grandes Contribuyentes','varios porcentajes','3481','3481','1'),
+			array(84,'Comisiones  a sociedades, nacionales o extranjeras residentes y establecimientos permanentes domiciliados en el país','3','3140','3482','1'),
+			array(85,'Otras autorretenciones (inciso 1 y 2 Art.92.1 RLRTI)','1,50 ó 1,75','350','350','1'),
+			array(86,'Pago a no residentes - Rentas Inmobiliarias','25 ó 37','411,422,432','500','1'),
+			array(87,'Pago a no residentes - Beneficios/Servicios  Empresariales','25 ó 37','411,422,432','501','1'),
+			array(88,'Pago a no residentes - Servicios técnicos, administrativos o de consultoría y regalías','25 ó 37','410,421,431','501A','1'),
+			array(89,'Pago a no residentes- Navegación Marítima y/o aérea','0 ó 25 ó 37','411,422,432','503','1'),
+			array(90,'Pago a no residentes- Dividendos distribuidos a personas naturales (domicilados o no en paraiso fiscal) o a sociedades sin beneficiario efectivo persona natural residente en Ecuador','25','4050, 4160, 4260','504','1'),
+			array(91,'Dividendos a sociedades con beneficiario efectivo persona natural residente en el Ecuador','Hasta 25 y conforme la Resolución NAC-DGERCGC20-000000013','4060, 4170','504A','1'),
+			array(92,'Dividendos a no residentes incumpliendo el deber de informar la composición societaria','37','4070, 4180, 4280','504B','1'),
+			array(93,'Dividendos a residentes o establecidos en paraísos fiscales o regímenes de menor imposición (con beneficiario Persona Natural residente en Ecuador)','Hasta 25 y conforme la Resolución NAC-DGERCGC20-000000013','4270','504C','1'),
+			array(94,'Pago a no residentes - Dividendos a fideicomisos domiciladas en paraísos fiscales o regímenes de menor imposición (con beneficiario efectivo persona natural residente en el Ecuador)','Hasta 25 y conforme la Resolución NAC-DGERCGC20-000000013','4270','504D','1'),
+			array(95,'Pago a no residentes - Anticipo dividendos (no domiciliada en paraísos fiscales o regímenes de menor imposición)','22 ó 25','404,415','504E','1'),
+			array(96,'Pago a no residentes - Anticipo dividendos (domiciliadas en paraísos fiscales o regímenes de menor imposición)','22, 25 ó 28','425','504F','1'),
+			array(97,'Pago a no residentes - Préstamos accionistas, beneficiarios o partìcipes (no domiciladas en paraísos fiscales o regímenes de menor imposición)','22 ó 25','404,415','504G','1'),
+			array(98,'Pago a no residentes - Préstamos accionistas, beneficiarios o partìcipes (domiciladas en paraísos fiscales o regímenes de menor imposición)','22, 25 ó 28','425','504H','1'),
+			array(99,'Pago a no residentes - Préstamos no comerciales a partes relacionadas  (no domiciladas en paraísos fiscales o regímenes de menor imposición)','22 ó 25','404,415','504I','1'),
+			array(100,'Pago a no residentes - Préstamos no comerciales a partes relacionadas  (domiciladas en paraísos fiscales o regímenes de menor imposición)','22, 25 ó 28','425','504J','1'),
+			array(101,'Pago a no residentes - Rendimientos financieros','25 ó 37','411,422,432','505','1'),
+			array(102,'Pago a no residentes – Intereses de créditos de Instituciones Financieras del exterior','0 ó 25','403,414,424','505A','1'),
+			array(103,'Pago a no residentes – Intereses de créditos de gobierno a gobierno','0 ó 25','403,414,424','505B','1'),
+			array(104,'Pago a no residentes – Intereses de créditos de organismos multilaterales','0 ó 25','403,414,424','505C','1'),
+			array(105,'Pago a no residentes - Intereses por financiamiento de proveedores externos','25','402,413,424','505D','1'),
+			array(106,'Pago a no residentes - Intereses de otros créditos externos','25','411,422,432','505E','1'),
+			array(107,'Pago a no residentes - Otros Intereses y Rendimientos Financieros','25 ó 37','411,422,432','505F','1'),
+			array(108,'Pago a no residentes- Cánones, derechos de autor,  marcas, patentes y similares','25 ó 37','411,422,432','509','1'),
+			array(109,'PPago a no residentes - Regalías por concepto de franquicias','25 ó 37','411,422,432','509A','1'),
+			array(110,'Pago a no residentes - Otras ganancias de capital distintas de enajenación de derechos representativos de capital','5, 25, 37','411,422,432','510','1'),
+			array(111,'Pago a no residentes - Servicios profesionales independientes','25 ó 37','411,422,432','511','1'),
+			array(112,'Pago a no residentes - Servicios profesionales dependientes','25 ó 37','411,422,432','512','1'),
+			array(113,'Pago a no residentes- Artistas','25 ó 37','411,422,432','513','1'),
+			array(114,'Pago a no residentes - Deportistas','25 ó 37','411,422,432','513A','1'),
+			array(115,'Pago a no residentes - Participación de consejeros','25 ó 37','411,422,432','514','1'),
+			array(116,'Pago a no residentes - Entretenimiento Público','25 ó 37','411,422,432','515','1'),
+			array(117,'Pago a no residentes - Pensiones','25 ó 37','411,422,432','516','1'),
+			array(118,'Pago a no residentes- Reembolso de Gastos','25 ó 37','411,422,432','517','1'),
+			array(119,'Pago a no residentes- Funciones Públicas','25 ó 37','411,422,432','518','1'),
+			array(120,'Pago a no residentes - Estudiantes','25 ó 37','411,422,432','519','1'),
+			array(121,'Pago a no residentes - Pago a proveedores de servicios hoteleros y turísticos en el exterior','25 ó 37','411,422,432','520A','1'),
+			array(122,'Pago a no residentes - Arrendamientos mercantil internacional','0, 25, 37','411,422,432','520B','1'),
+			array(123,'Pago a no residentes - Comisiones por exportaciones y por promoción de turismo receptivo','0, 25, 37','411,422,432','520D','1'),
+			array(124,'Pago a no residentes - Por las empresas de transporte marítimo o aéreo y por empresas pesqueras de alta mar, por su actividad.','0','411,422,432','520E','1'),
+			array(125,'Pago a no residentes - Por las agencias internacionales de prensa','0, 25, 37','411,422,432','520F','1'),
+			array(126,'Pago a no residentes - Contratos de fletamento de naves para empresas de transporte aéreo o marítimo internacional','0, 25, 37','411,422,432','520G','1'),
+			array(127,'Pago a no residentes - Enajenación de derechos representativos de capital u otros derechos que permitan la exploración, explotación, concesión o similares de sociedades','1, 10','408,419,429','521','1'),
+			array(128,'Pago a no residentes - Seguros y reaseguros (primas y cesiones)','0, 25, 37','409,420,430','523A','1'),
+			array(129,'Pago a no residentes- Donaciones en dinero -Impuesto a las donaciones','Según art 36 LRTI literal d)','411,422,432','525','1'),
+			array(130,	'30.00 %',	'30',	'0',	'1',	'2'),
+			array(131,	'70.00 %',	'70',	'0',	'2',	'2'),
+			array(132,	'100.00 %',	'100',	'0',	'3',	'2'),
+			array(133,	'100% VALOR RETENIDO DISTRIBUIDOR',	'100',	'0',	'5',	'2'),
+			array(134,	'100% VALOR VOCEADORES VARIOS',	'100',	'0',	'6',	'2'),
+			array(135,	'0.00 %',	'0',	'0',	'7',	'2'),
+			array(136,	'0 % NO PROCEDE RETENCION',	'0',	'0',	'8',	'2'),
+			array(137,	'10.00 %',	'10',	'0',	'9',	'2'),
+			array(138,	'20.00 %',	'20',	'0',	'10',	'2')
+		);
+
+		foreach ($incomeData as $row) {
+			$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (";
+			$sql .= $row[0].",";
+			$sql .= "'".$this->db->escape($row[1])."',";
+			$sql .= "'".$this->db->escape($row[2])."',";
+			$sql .= "'".$this->db->escape($row[3])."',";
+			$sql .= "'".$this->db->escape($row[4])."',";
+			$sql .= "'".$this->db->escape($row[5])."')";
+			$this->db->query($sql);
+		}
+	}
 }
