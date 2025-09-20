@@ -43,7 +43,6 @@ class modApproval extends DolibarrModules
 		parent::__construct($db);
 
 		// Id for module (must be unique).
-		// Id for module (must be unique).
 		$this->numero = 170000;
 		// Key text used to identify module (for permissions, menus, etc...)
 		$this->rights_class = 'approval';
@@ -51,16 +50,7 @@ class modApproval extends DolibarrModules
 		$this->family = "financial";
 		// Position of module icon in setup page (0=last)
 		$this->module_position = 50;
-		// Gives the possibility to the module, to provide his own family info and position of this family on menuboards.
-		/*
-			'family_info' => array(
-				'name' => 'myfamily',
-				'position' => 10,
-				'langs' => 'mylangfile',
-				'label' => 'MyFamilyLabel',
-			)
-		*/
-
+		
 		// Module name (will be used to find module icon image modMyModule.png in module dir)
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		// Module description (used for questions)
@@ -81,15 +71,8 @@ class modApproval extends DolibarrModules
 		$this->module_parts = array(
 			// Set this to 1 if module has its own trigger directory
 			'triggers' => 1,
-			// Set this to 1 if module has its own login method file
-			//'login' => 0,
-			// Set this to 1 if module has its own substitution file
-			//'substitutions' => 0,
-			// Set this to 1 if module has its own models directory
 			'models' => 1,
-			// Set this to 1 if module has its own theme directory
 			'theme' => 0,
-			// List of hooks that are supported by module.
 			'hooks' => array(
 				'invoicecard',
 				'ordercard',
@@ -99,28 +82,18 @@ class modApproval extends DolibarrModules
 				'expeditioncard',
 				'usercard',
 				'thirdpartycard'
-				// 'doActions' hook removed, will be replaced by a proper trigger
 			),
-			// Set this to 1 if module has its own cron directory
-			//'cronjobs' => 0,
-			// Set this to 1 if module has its own menus file
 			'menus' => 1,
 		);
 
 		// Config page, if defined
-		// This parameter contains the filename of a PHP page with the setup of the module.
 		$this->config_page_url = array("setup.php@approval");
 
 		// Dependencies
-		// List of modules id that must be enabled if this module is enabled
 		$this->depends = array('modSociete');
-		// List of modules id to disable if this module is disabled
 		$this->neededby = array();
-		// List of modules id to disable if this module is enabled
 		$this->conflictwith = array();
-		// List of libraries that must be enabled if this module is enabled
 		$this->phpmin = array(5, 3);
-		// List of Dolibarr version that must be installed if this module is enabled
 		$this->need_dolibarr_version = array(3, 3);
 
 		// Lang files
@@ -130,21 +103,18 @@ class modApproval extends DolibarrModules
 		$this->rights = array();
 		$this->rights_class = 'approval';
 		$r = 0;
-		// Permission to read
 		$this->rights[$r][0] = 170001;
 		$this->rights[$r][1] = 'Read approval';
 		$this->rights[$r][2] = 'r';
 		$this->rights[$r][3] = 1;
 		$this->rights[$r][4] = 'read';
 		$r++;
-		// Permission to create/update
 		$this->rights[$r][0] = 170002;
 		$this->rights[$r][1] = 'Create/update approval';
 		$this->rights[$r][2] = 'w';
 		$this->rights[$r][3] = 0;
 		$this->rights[$r][4] = 'write';
 		$r++;
-		// Permission to delete
 		$this->rights[$r][0] = 170003;
 		$this->rights[$r][1] = 'Delete approval';
 		$this->rights[$r][2] = 'd';
@@ -219,7 +189,6 @@ class modApproval extends DolibarrModules
 			return -1;
 		}
 
-		// This will handle the creation of permissions, menus, etc.
 		if (parent::init($options) < 0) {
 			$this->db->rollback();
 			return -1;
@@ -251,7 +220,6 @@ class modApproval extends DolibarrModules
 			return -1;
 		}
 
-		// This handles the removal of permissions, menus etc.
 		if (parent::remove($options) < 0) {
 			$this->db->rollback();
 			return -1;
@@ -262,7 +230,7 @@ class modApproval extends DolibarrModules
 	}
 
 
-	// All original hook functions are preserved below to draw the fields in the UI
+	// HOOKS to display fields on cards
 	
 	public function invoicecard($parameters, &$object, &$action, $hookmanager)
 	{
@@ -294,69 +262,9 @@ class modApproval extends DolibarrModules
 	{
 	}
 
-	/**
-	 * This function is called by Dolibarr triggers.
-	 * It executes after an object has been created or modified, ensuring we have an ID to work with.
-	 */
-	public function run_trigger($action, $object, $user, $langs, $conf)
-	{
-		$context_map = array(
-			'ORDER_SUPPLIER_CREATE'   => 'supplierordercard',
-			'ORDER_SUPPLIER_MODIFY'   => 'supplierordercard',
-			'INVOICE_SUPPLIER_CREATE' => 'supplierinvoicecard',
-			'INVOICE_SUPPLIER_MODIFY' => 'supplierinvoicecard',
-			'ORDER_CREATE'            => 'ordercard',
-			'ORDER_MODIFY'            => 'ordercard',
-			'INVOICE_CREATE'          => 'invoicecard',
-			'INVOICE_MODIFY'          => 'invoicecard',
-			'SHIPMENT_CREATE'         => 'expeditioncard',
-			'SHIPMENT_MODIFY'         => 'expeditioncard'
-		);
-
-		if (isset($context_map[$action])) {
-			$context = $context_map[$action];
-
-			if ($context == 'supplierordercard') {
-				if (isset($_POST['claveacceso'])) {
-					$sql = "UPDATE " . MAIN_DB_PREFIX . "commande_fournisseur SET claveacceso = '".$this->db->escape(GETPOST('claveacceso', 'alpha'))."' WHERE rowid = " . $object->id;
-					$this->db->query($sql);
-				}
-			} else {
-				$var_prefix = '';
-				$table_name = '';
-				switch ($context) {
-					case 'ordercard':           $var_prefix = 'c_'; $table_name = 'commande'; break;
-					case 'supplierinvoicecard': $var_prefix = 'f_'; $table_name = 'facture_fourn'; break;
-					case 'invoicecard':         $var_prefix = 'c_'; $table_name = 'facture'; break;
-					case 'expeditioncard':      $var_prefix = 'c_'; $table_name = 'expedition'; break;
-				}
-
-				if ($table_name) {
-					$updates = array();
-					for ($i = 1; $i < 8; $i++) {
-						$note_field = $var_prefix . 'note' . $i;
-						$name_field = $var_prefix . 'name' . $i;
-						if (isset($_POST[$note_field])) {
-							$updates[] = $note_field . " = '" . $this->db->escape(GETPOST($note_field, 'alpha')) . "'";
-						}
-						if (isset($_POST[$name_field])) {
-							$updates[] = $name_field . " = '" . $this->db->escape(GETPOST($name_field, 'alpha')) . "'";
-						}
-					}
-					if (!empty($updates)) {
-						$sql = "UPDATE " . MAIN_DB_PREFIX . $table_name . " SET " . implode(', ', $updates) . " WHERE rowid = " . $object->id;
-						$this->db->query($sql);
-					}
-				}
-			}
-		}
-
-		return 0;
-	}
 
 	/**
-	 * Completely rewritten function to display custom fields on cards.
-	 * This version fixes the logic for supplier orders and correctly handles edit vs. view modes.
+	 * Function to display custom fields on cards.
 	 */
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
@@ -368,7 +276,7 @@ class modApproval extends DolibarrModules
 
 		// --- Logic for supplierordercard (only the 'claveacceso' field) ---
 		if ($context == 'supplierordercard') {
-			print '<!-- Approval module hook fired for supplierordercard -->';
+			dol_syslog("Hook _print_texte fired for supplierordercard", LOG_DEBUG);
 			print '</table>';
 			print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
 			print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
@@ -427,8 +335,8 @@ class modApproval extends DolibarrModules
 					$table_name = 'expedition';
 					break;
 			}
-
-			print '<!-- Approval module hook fired for context: ' . $context . ' -->';
+			
+			dol_syslog("Hook _print_texte fired for context: ".$context, LOG_DEBUG);
 			print '</table>';
 			print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
 			print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
@@ -694,4 +602,3 @@ class modApproval extends DolibarrModules
 		}
 	}
 }
-" in the canvas.
