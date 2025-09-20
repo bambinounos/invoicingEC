@@ -14,8 +14,8 @@ class modApproval extends DolibarrModules
 		$this->module_position = 50;
 		$this->name = preg_replace('/^mod/i', '', get_class($this));
 		$this->description = "Electronic invoicing module for Ecuador";
-		$this->editor_name = "Isayev";
-		$this->editor_url = "https://www.hellbam.com";
+		$this->editor_name = "Bambinounos";
+		$this->editor_url = "https://bambinounos.com";
 		$this->version = '1.0';
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->special = 0;
@@ -94,14 +94,21 @@ class modApproval extends DolibarrModules
 				null, null, 'InnoDB'
 			);
 
-			// 2. Create llx_user_info table
+			// 2. Create llx_user_info table with all its columns
 			$this->db->ddl->createTable(
 				MAIN_DB_PREFIX.'user_info',
 				array(
 					'rowid'      => 'integer auto_increment PRIMARY KEY',
-					'fk_user'    => 'integer NOT NULL',
-					'is_approve' => 'integer DEFAULT 0',
-					'is_order'   => 'integer DEFAULT 0'
+					'fk_purpose'        => 'integer NOT NULL DEFAULT 1',
+					'fk_invoice_number' => 'integer',
+					'fk_note_number'    => 'integer',
+					'fk_vendor_number'  => 'integer',
+					'fk_debit_number'   => 'integer',
+					'fk_alias'          => 'text',
+					'fk_taxpayer'       => 'text',
+					'fk_keep'           => 'text',
+					'fk_microenterprise'=> 'text',
+					'fk_agent'          => 'text'
 				),
 				null, null, 'InnoDB'
 			);
@@ -126,18 +133,23 @@ class modApproval extends DolibarrModules
 				null, null, 'InnoDB'
 			);
 
-			// 4. Add custom fields to llx_commande
+			// 4. Add custom fields to Dolibarr core tables
+			$this->_add_columns_to_commande_fournisseur();
 			$this->_add_columns_to_table(MAIN_DB_PREFIX.'commande');
-			
-			// 5. Add custom fields to llx_expedition
 			$this->_add_columns_to_table(MAIN_DB_PREFIX.'expedition');
+			$this->_add_columns_to_facture();
+			$this->_add_columns_to_facture_fourn();
 			
-			// 6. Recreate and populate llx_income for Ecuadorian tax codes
+			// 5. Recreate and populate llx_income for Ecuadorian tax codes
 			$this->_recreate_and_populate_income_table();
 
-			// 7. Insert initial settings into llx_order_info
-			$sql = "INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_taxpayer, ck_keep, ck_microenterprise, ck_agent, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', NULL, NULL, NULL, NULL,'DON-,MANN-,/')";
-			$this->db->query($sql);
+			// 6. Insert initial settings data
+			$sql_order = "INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_taxpayer, ck_keep, ck_microenterprise, ck_agent, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', NULL, NULL, NULL, NULL,'DON-,MANN-,/')";
+			$this->db->query($sql_order);
+
+			$sql_user = "INSERT INTO ".MAIN_DB_PREFIX."user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias, fk_taxpayer, fk_keep, fk_microenterprise, fk_agent) VALUES (1, 1, 1, 1, 1, 1, 'Alias name', NULL, NULL, NULL, NULL)";
+			$this->db->query($sql_user);
+
 
 		} catch (Exception $e) {
 			$this->error = $e->getMessage();
@@ -169,8 +181,12 @@ class modApproval extends DolibarrModules
 			$this->db->ddl->dropTable(MAIN_DB_PREFIX.'income');
 
 			// Remove custom columns from Dolibarr core tables
+			$this->_drop_columns_from_commande_fournisseur();
 			$this->_drop_columns_from_table(MAIN_DB_PREFIX.'commande');
 			$this->_drop_columns_from_table(MAIN_DB_PREFIX.'expedition');
+			$this->_drop_columns_from_facture();
+			$this->_drop_columns_from_facture_fourn();
+
 
 		} catch (Exception $e) {
 			$this->error = $e->getMessage();
@@ -189,6 +205,107 @@ class modApproval extends DolibarrModules
 		return 1;
 	}
 
+	private function _add_columns_to_commande_fournisseur()
+	{
+		$this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso', 'text');
+	}
+
+	private function _drop_columns_from_commande_fournisseur()
+	{
+		$this->db->ddl->dropColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso');
+	}
+
+	private function _add_columns_to_facture()
+	{
+		$columns = array(
+			'c_note1' => 'text', 'c_name1' => 'text',
+			'c_note2' => 'text', 'c_name2' => 'text',
+			'c_note3' => 'text', 'c_name3' => 'text',
+			'c_note4' => 'text', 'c_name4' => 'text',
+			'c_note5' => 'text', 'c_name5' => 'text',
+			'identification_type' => 'integer DEFAULT 4',
+			'tip' => 'integer',
+			'invoice_number' => 'integer',
+			'warehouse' => 'integer',
+			'seller' => 'integer',
+			'reason_type' => 'integer DEFAULT 3',
+			'ws_approval_one' => 'text',
+			'ws_approval_two' => 'text',
+			'ws_time' => 'datetime',
+			'claveacceso' => 'text',
+			'ws_approval_thr' => 'text',
+			'ws_approval_fou' => 'text',
+			'ws_time_end' => 'datetime',
+			'claveacceso_end' => 'text'
+		);
+		foreach ($columns as $colName => $colDef) {
+			$this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture', $colName, $colDef);
+		}
+	}
+
+	private function _drop_columns_from_facture()
+	{
+		$columns = array(
+			'c_note1', 'c_name1', 'c_note2', 'c_name2', 'c_note3', 'c_name3',
+			'c_note4', 'c_name4', 'c_note5', 'c_name5', 'identification_type',
+			'tip', 'invoice_number', 'warehouse', 'seller', 'reason_type',
+			'ws_approval_one', 'ws_approval_two', 'ws_time', 'claveacceso',
+			'ws_approval_thr', 'ws_approval_fou', 'ws_time_end', 'claveacceso_end'
+		);
+		foreach ($columns as $colName) {
+			$this->db->ddl->dropColumn(MAIN_DB_PREFIX.'facture', $colName);
+		}
+	}
+
+	private function _add_columns_to_facture_fourn()
+	{
+		$columns = array(
+			'f_note1' => 'text', 'f_name1' => 'text',
+			'f_note2' => 'text', 'f_name2' => 'text',
+			'f_note3' => 'text', 'f_name3' => 'text',
+			'f_note4' => 'text', 'f_name4' => 'text',
+			'f_note5' => 'text', 'f_name5' => 'text',
+			'f_note6' => 'text', 'f_name6' => 'text',
+			'f_note7' => 'text', 'f_name7' => 'text',
+			'identification_type' => 'integer DEFAULT 4',
+			'tip' => 'integer',
+			'invoice_number' => 'integer',
+			'warehouse' => 'integer',
+			'seller' => 'integer',
+			'reason_type' => 'integer DEFAULT 3',
+			'ws_approval_one' => 'text',
+			'ws_approval_two' => 'text',
+			'ws_time' => 'datetime',
+			'claveacceso' => 'text',
+			'ws_approval_thr' => 'text',
+			'ws_approval_fou' => 'text',
+			'ws_time_end' => 'datetime',
+			'claveacceso_end' => 'text',
+			'date_done' => 'date',
+			'date_create' => 'date',
+			'modify' => 'text'
+		);
+		foreach ($columns as $colName => $colDef) {
+			$this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture_fourn', $colName, $colDef);
+		}
+	}
+
+	private function _drop_columns_from_facture_fourn()
+	{
+		$columns = array(
+			'f_note1', 'f_name1', 'f_note2', 'f_name2', 'f_note3', 'f_name3',
+			'f_note4', 'f_name4', 'f_note5', 'f_name5', 'f_note6', 'f_name6',
+			'f_note7', 'f_name7', 'identification_type', 'tip', 'invoice_number',
+			'warehouse', 'seller', 'reason_type', 'ws_approval_one',
+			'ws_approval_two', 'ws_time', 'claveacceso', 'ws_approval_thr',
+			'ws_approval_fou', 'ws_time_end', 'claveacceso_end', 'date_done',
+			'date_create', 'modify'
+		);
+		foreach ($columns as $colName) {
+			$this->db->ddl->dropColumn(MAIN_DB_PREFIX.'facture_fourn', $colName);
+		}
+	}
+	
 	/**
 	 * Helper function to add custom columns to a table
 	 * @param string $tableName The name of the table to alter
