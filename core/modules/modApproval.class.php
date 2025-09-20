@@ -1,21 +1,11 @@
 <?php
 /* Copyright (C) 2004-2018  Laurent Destailleur     <eldy@users.sourceforge.net>
- * Copyright (C) 2018-2019  Nicolas ZABOURI         <info@inovea-conseil.com>
- * Copyright (C) 2019-2020  Frédéric France         <frederic.france@netlogic.fr>
  * Copyright (C) 2021-2024  Maxim Maksimovich Isaev <isayev95117@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 3 of the License, or
  * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
 include_once DOL_DOCUMENT_ROOT . '/core/modules/DolibarrModules.class.php';
@@ -25,7 +15,6 @@ class modApproval extends DolibarrModules
 	public function __construct($db)
 	{
 		parent::__construct($db);
-
 		$this->numero = 170000;
 		$this->rights_class = 'approval';
 		$this->family = "financial";
@@ -34,20 +23,18 @@ class modApproval extends DolibarrModules
 		$this->description = "Module for electronic invoicing compliance in Ecuador, adapted for PostgreSQL.";
 		$this->editor_name = 'Maxim Maksimovich Isaev';
 		$this->editor_url = 'https://www.dolibarr.org';
-		$this->version = '17.0.6'; // Final version
+		$this->version = '17.0.7'; // Definitive final version
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->picto = 'approval.png';
 		$this->module_parts = array(
 			'triggers' => 1,
-			'models' => 1,
 			'hooks' => array(
 				'invoicecard',
 				'ordercard',
 				'supplierinvoicecard',
 				'supplierordercard',
 				'expeditioncard',
-			),
-			'menus' => 1,
+			)
 		);
 		$this->config_page_url = array("setup.php@approval");
 		$this->depends = array('modSociete');
@@ -62,7 +49,7 @@ class modApproval extends DolibarrModules
 	public function init($options = '')
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
-		$this->remove($options);
+		$this->remove($options); // Clean slate first
 		$this->db->begin();
 		try {
 			$this->_create_tables_and_columns();
@@ -85,6 +72,7 @@ class modApproval extends DolibarrModules
 		dol_syslog(__METHOD__, LOG_DEBUG);
 		$this->db->begin();
 		try {
+			$this->_cleanup_extrafields(); // IMPORTANT: Clean orphaned extrafields first
 			$this->_drop_tables_and_columns();
 		} catch (Exception $e) {
 			$this->error = $e->getMessage();
@@ -99,11 +87,11 @@ class modApproval extends DolibarrModules
 		return 1;
 	}
 
-	public function invoicecard($parameters, &$object, &$action, $hookmanager){ return $this->_print_texte($parameters, $object, $action, $hookmanager); }
-	public function ordercard($parameters, &$object, &$action, $hookmanager){ return $this->_print_texte($parameters, $object, $action, $hookmanager); }
-	public function supplierinvoicecard($parameters, &$object, &$action, $hookmanager){ return $this->_print_texte($parameters, $object, $action, $hookmanager); }
-	public function supplierordercard($parameters, &$object, &$action, $hookmanager){ return $this->_print_texte($parameters, $object, $action, $hookmanager); }
-	public function expeditioncard($parameters, &$object, &$action, $hookmanager){ return $this->_print_texte($parameters, $object, $action, $hookmanager); }
+	public function invoicecard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
+	public function ordercard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
+	public function supplierinvoicecard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
+	public function supplierordercard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
+	public function expeditioncard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
 
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
@@ -147,7 +135,7 @@ class modApproval extends DolibarrModules
 		$this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso', 'text');
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
 		foreach ($cols_common as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande', $col, $def); $this->db->ddl->addColumn(MAIN_DB_PREFIX.'expedition', $col, $def); }
-		$cols_facture = array_diff_key($cols_common, ['identification_c_type'=>0,'start_date'=>0,'end_date'=>0,'carrier'=>0]);
+		$cols_facture = array_diff_key($cols_common, ['c_note7'=>0, 'c_name7'=>0, 'identification_c_type'=>0,'start_date'=>0,'end_date'=>0,'carrier'=>0]);
 		foreach ($cols_facture as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture', $col, $def); }
 		$cols_fourn = ['f_note1'=>'text','f_name1'=>'text','f_note2'=>'text','f_name2'=>'text','f_note3'=>'text','f_name3'=>'text','f_note4'=>'text','f_name4'=>'text','f_note5'=>'text','f_name5'=>'text','f_note6'=>'text','f_name6'=>'text','f_note7'=>'text','f_name7'=>'text','identification_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','date_done'=>'date','date_create'=>'date','modify'=>'text'];
 		foreach ($cols_fourn as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture_fourn', $col, $def); }
@@ -157,7 +145,6 @@ class modApproval extends DolibarrModules
 	{
 		$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', 'DON-,MANN-,/')");
 		$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias) VALUES (1, 1, 1, 1, 1, 1, 'Alias name')");
-		
 		$incomeData = array(
 			array(1,'Honorarios profesionales y demás pagos por servicios relacionados con el título profesional','10','303','303','1'), array(2,'Servicios profesionales prestados por sociedades residentes','3','3030','303A','1'),
 			array(3,'Servicios predomina el intelecto no relacionados con el título profesional','10','304','304','1'), array(4,'Comisiones y demás pagos por servicios predomina intelecto no relacionados con el título profesional','10','304','304A','1'),
@@ -250,5 +237,26 @@ class modApproval extends DolibarrModules
 			foreach ($cols as $col) { $this->db->ddl->dropColumn(MAIN_DB_PREFIX.$table, $col); }
 		}
 	}
-}
+    
+    private function _cleanup_extrafields()
+    {
+        dol_syslog(__METHOD__, LOG_DEBUG);
+        $extrafields_to_delete = [
+            'facture' => ['approval_c_note1', 'approval_c_name1', 'approval_identification_type', 'approval_tip', 'approval_invoice_number', 'approval_warehouse', 'approval_seller', 'approval_reason_type', 'approval_ws_approval_one', 'approval_ws_approval_two', 'approval_claveacceso'],
+            'commande' => ['approval_c_note1', 'approval_c_name1', 'approval_identification_type', 'approval_tip', 'approval_invoice_number', 'approval_warehouse', 'approval_seller', 'approval_reason_type', 'approval_claveacceso'],
+            'facture_fourn' => ['approval_claveacceso'],
+            'commande_fournisseur' => ['approval_claveacceso']
+        ];
 
+        foreach ($extrafields_to_delete as $elementtype => $fieldlist) {
+            foreach ($fieldlist as $fieldname) {
+                // Delete from llx_extrafields
+                $sql_delete_extrafield = "DELETE FROM ".MAIN_DB_PREFIX."extrafields WHERE name = '".$this->db->escape($fieldname)."' AND elementtype = '".$this->db->escape($elementtype)."'";
+                $this->db->query($sql_delete_extrafield);
+
+                // Drop column from llx_*_extrafields table
+                $this->db->ddl->dropColumn(MAIN_DB_PREFIX.$elementtype."_extrafields", $fieldname);
+            }
+        }
+    }
+}
