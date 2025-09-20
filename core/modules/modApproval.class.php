@@ -23,7 +23,7 @@ class modApproval extends DolibarrModules
 		$this->description = "Module for electronic invoicing compliance in Ecuador, adapted for PostgreSQL.";
 		$this->editor_name = 'Maxim Maksimovich Isaev';
 		$this->editor_url = 'https://www.dolibarr.org';
-		$this->version = '17.0.8'; // Definitive final version
+		$this->version = '17.0.9-diag'; // Diagnostic Version
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->picto = 'approval.png';
 		$this->module_parts = array(
@@ -92,64 +92,14 @@ class modApproval extends DolibarrModules
 	public function supplierordercard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
 	public function expeditioncard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
 
+	/**
+	 * DIAGNOSTIC VERSION of the display function.
+	 * Its only job is to write a message to the log to confirm the hook is firing.
+	 */
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
-		global $langs, $db;
-		$langs->load("approval");
-		$is_edit_mode = ($action == 'create' || strpos($action, 'edit') !== false);
-
-		print '<!-- HOOK Approval START -->';
-		print '<tr class="liste_titre"><td colspan="4">'.$langs->trans("Approval").'</td></tr>';
-		
-		$context = $hookmanager->context;
-		$data = array();
-		$table_name = '';
-
-		// Define table mapping
-		$tables = array(
-			'ordercard' => 'commande', 
-			'supplierinvoicecard' => 'facture_fourn', 
-			'invoicecard' => 'facture', 
-			'expeditioncard' => 'expedition',
-			'supplierordercard' => 'commande_fournisseur'
-		);
-		if (isset($tables[$context])) {
-			$table_name = $tables[$context];
-		}
-
-		// If we are viewing/editing an existing object, fetch its custom data
-		if (!empty($object->id) && !empty($table_name)) {
-			$sql = "SELECT * FROM " . MAIN_DB_PREFIX . $table_name . " WHERE rowid = " . (int) $object->id;
-			$resql = $db->query($sql);
-			if ($resql) {
-				$data = $db->fetch_array($resql);
-			}
-		}
-
-		if ($context == 'supplierordercard') {
-			$value = isset($data['claveacceso']) ? $data['claveacceso'] : '';
-			if ($is_edit_mode) {
-				print '<tr class="oddeven"><td>' . $langs->trans('ClaveDeAcceso') . '</td><td colspan="3"><input class="flat" name="claveacceso" value="' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '"></td></tr>';
-			} else {
-				print '<tr class="oddeven"><td>' . $langs->trans('ClaveDeAcceso') . '</td><td colspan="3">' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</td></tr>';
-			}
-		} else {
-			$prefixes = array('ordercard' => 'c_', 'supplierinvoicecard' => 'f_', 'invoicecard' => 'c_', 'expeditioncard' => 'c_');
-			$var_prefix = isset($prefixes[$context]) ? $prefixes[$context] : '';
-			for ($i = 1; $i < 8; $i++) {
-				$note_field = $var_prefix . 'note' . $i; $name_field = $var_prefix . 'name' . $i;
-				$note_value = isset($data[$note_field]) ? $data[$note_field] : ''; 
-				$name_value = isset($data[$name_field]) ? $data[$name_field] : '';
-				if ($is_edit_mode) {
-					print '<tr class="oddeven"><td>' . $langs->trans('Note' . $i) . '</td><td><input class="flat" name="' . $note_field . '" value="' . htmlspecialchars($note_value, ENT_QUOTES, 'UTF-8') . '"></td>';
-					print '<td>' . $langs->trans('Name' . $i) . '</td><td><input class="flat" name="' . $name_field . '" value="' . htmlspecialchars($name_value, ENT_QUOTES, 'UTF-8') . '"></td></tr>';
-				} else {
-					print '<tr class="oddeven"><td>' . $langs->trans('Note' . $i) . '</td><td>' . htmlspecialchars($note_value, ENT_QUOTES, 'UTF-8') . '</td>';
-					print '<td>' . $langs->trans('Name' . $i) . '</td><td>' . htmlspecialchars($name_value, ENT_QUOTES, 'UTF-8') . '</td></tr>';
-				}
-			}
-		}
-		print '<!-- HOOK Approval END -->';
+		dol_syslog("--- APPROVAL MODULE HOOK TRIGGERED --- Context: " . $hookmanager->context, LOG_INFO);
+		print "<!-- APPROVAL MODULE HOOK WAS HERE -->";
 		return 0;
 	}
 
