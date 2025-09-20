@@ -15,6 +15,10 @@ class modApproval extends DolibarrModules
 	public function __construct($db)
 	{
 		parent::__construct($db);
+        // --- DIAGNOSTIC LOG ---
+        // This message MUST appear in the logs every time a page with a hook is loaded.
+        dol_syslog("--- modApproval Class Constructor Loaded ---", LOG_ERR);
+
 		$this->numero = 170000;
 		$this->rights_class = 'approval';
 		$this->family = "financial";
@@ -23,7 +27,7 @@ class modApproval extends DolibarrModules
 		$this->description = "Module for electronic invoicing compliance in Ecuador, adapted for PostgreSQL.";
 		$this->editor_name = 'Maxim Maksimovich Isaev';
 		$this->editor_url = 'https://www.dolibarr.org';
-		$this->version = '17.0.9-diag'; // Diagnostic Version
+		$this->version = '17.0.10-diag'; // Diagnostic Version
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->picto = 'approval.png';
 		$this->module_parts = array(
@@ -49,7 +53,7 @@ class modApproval extends DolibarrModules
 	public function init($options = '')
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
-		$this->remove($options); // Clean slate first
+		$this->remove($options);
 		$this->db->begin();
 		try {
 			$this->_create_tables_and_columns();
@@ -92,14 +96,10 @@ class modApproval extends DolibarrModules
 	public function supplierordercard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
 	public function expeditioncard($p, &$o, &$a, $h){ return $this->_print_texte($p, $o, $a, $h); }
 
-	/**
-	 * DIAGNOSTIC VERSION of the display function.
-	 * Its only job is to write a message to the log to confirm the hook is firing.
-	 */
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
-		dol_syslog("--- APPROVAL MODULE HOOK TRIGGERED --- Context: " . $hookmanager->context, LOG_INFO);
-		print "<!-- APPROVAL MODULE HOOK WAS HERE -->";
+		dol_syslog("--- APPROVAL MODULE HOOK FUNCTION CALLED --- Context: " . $hookmanager->context, LOG_ERR);
+		print "<!-- APPROVAL HOOK WAS EXECUTED -->";
 		return 0;
 	}
 
