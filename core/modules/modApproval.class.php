@@ -294,88 +294,113 @@ class modApproval extends DolibarrModules
 	}
 
 	/**
-	 * Refactored function to display custom fields on cards.
-	 * This version simplifies the logic and removes a condition that was likely
-	 * preventing the fields from being displayed.
+	 * Completely rewritten function to display custom fields on cards.
+	 * This version fixes the logic for supplier orders and correctly handles edit vs. view modes.
 	 */
 	private function _print_texte($parameters, &$object, &$action, $hookmanager)
 	{
 		global $db, $conf, $langs;
-
-		// Load module language files
 		$langs->load("approval");
 
-		// This hook applies to multiple pages. We exit early if it's not one we care about.
-		$valid_contexts = array('invoicecard', 'ordercard', 'supplierordercard', 'supplierinvoicecard', 'expeditioncard');
-		if (!in_array($hookmanager->context, $valid_contexts)) {
+		$context = $hookmanager->context;
+		$is_edit_mode = ($action == 'create' || strpos($action, 'edit') !== false);
+
+		// --- Logic for supplierordercard (only the 'claveacceso' field) ---
+		if ($context == 'supplierordercard') {
+			print '<!-- Approval module hook fired for supplierordercard -->';
+			print '</table>';
+			print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
+			print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
+
+			$value = '';
+			if (!empty($object->id)) {
+				// In edit/view mode, we need to fetch the current value
+				if (isset($object->claveacceso)) {
+					$value = $object->claveacceso;
+				} else {
+					$sql = "SELECT claveacceso FROM " . MAIN_DB_PREFIX . "commande_fournisseur WHERE rowid=" . $object->id;
+					$resql = $db->query($sql);
+					if ($resql) {
+						$res = $db->fetch_object($resql);
+						if ($res) {
+							$value = $res->claveacceso;
+						}
+					}
+				}
+			}
+
+			$safe_value = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+			
+			if ($is_edit_mode) {
+				print '<tr><td>' . $langs->trans('ClaveDeAcceso') . '</td><td><input name="claveacceso" value="' . $safe_value . '"></td></tr>';
+			} else {
+				print '<tr><td>' . $langs->trans('ClaveDeAcceso') . '</td><td>' . $safe_value . '</td></tr>';
+			}
+
+			print '</table></div></div>';
+			print '<table class="border" width="100%">';
 			return 0;
 		}
-		
-		// Add a debug comment to HTML to confirm the hook is running
-		print '<!-- Approval module hook fired for context: '.$hookmanager->context.' -->';
 
-		$var_prefix = '';
-		$table_name = '';
+		// --- Generic logic for other cards ('note' and 'name' fields) ---
+		$valid_contexts = array('invoicecard', 'ordercard', 'supplierinvoicecard', 'expeditioncard');
+		if (in_array($context, $valid_contexts)) {
+			$var_prefix = '';
+			$table_name = '';
 
-		// Use a switch statement for cleaner logic to determine table and field prefixes
-		switch ($hookmanager->context) {
-			case 'ordercard':
-				$var_prefix = 'c_';
-				$table_name = 'commande';
-				break;
-			case 'supplierordercard':
-				$var_prefix = ''; // This context seems to have no prefix in the original logic
-				$table_name = 'commande_fournisseur';
-				break;
-			case 'supplierinvoicecard':
-				$var_prefix = 'f_';
-				$table_name = 'facture_fourn';
-				break;
-			case 'invoicecard':
-				$var_prefix = 'c_';
-				$table_name = 'facture';
-				break;
-			case 'expeditioncard':
-				$var_prefix = 'c_';
-				$table_name = 'expedition';
-				break;
-			default:
-				return 0; // Should not happen due to the in_array check above, but good practice
-		}
-
-		// Start drawing the fields
-		print '</table>'; // Close the previous table to insert our own block
-		print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
-		print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
-
-		// If we are in 'create' mode, just show empty input fields
-		if ($action == 'create') {
-			for ($i = 1; $i < 8; $i++) {
-				print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td><input name="' . $var_prefix . 'note' . $i . '" value=""></td></tr>';
-				print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td><input name="' . $var_prefix . 'name' . $i . '" value=""></td></tr>';
+			switch ($context) {
+				case 'ordercard':
+					$var_prefix = 'c_';
+					$table_name = 'commande';
+					break;
+				case 'supplierinvoicecard':
+					$var_prefix = 'f_';
+					$table_name = 'facture_fourn';
+					break;
+				case 'invoicecard':
+					$var_prefix = 'c_';
+					$table_name = 'facture';
+					break;
+				case 'expeditioncard':
+					$var_prefix = 'c_';
+					$table_name = 'expedition';
+					break;
 			}
-		}
-		// If we are viewing an existing record, fetch and display its data
-		elseif (!empty($object->id)) {
-			$sql = "SELECT * FROM " . MAIN_DB_PREFIX . $table_name . " WHERE rowid=" . $object->id;
-			$resql = $db->query($sql);
-			if ($resql) {
-				$arr = $db->fetch_array($resql);
-				for ($i = 1; $i < 8; $i++) {
-					// Use htmlspecialchars to prevent XSS issues with displayed data
-					$note_value = isset($arr[$var_prefix . 'note' . $i]) ? htmlspecialchars($arr[$var_prefix . 'note' . $i], ENT_QUOTES, 'UTF-8') : '';
-					$name_value = isset($arr[$var_prefix . 'name' . $i]) ? htmlspecialchars($arr[$var_prefix . 'name' . $i], ENT_QUOTES, 'UTF-8') : '';
+
+			print '<!-- Approval module hook fired for context: ' . $context . ' -->';
+			print '</table>';
+			print '<div class="fichecenter"><div class="fichehalfleft"><table class="border" width="100%">';
+			print '<tr class="liste_titre"><td colspan="2">' . $langs->trans('Approval') . '</td></tr>';
+
+			$arr = array();
+			if (!empty($object->id)) {
+				$sql = "SELECT * FROM " . MAIN_DB_PREFIX . $table_name . " WHERE rowid=" . $object->id;
+				$resql = $db->query($sql);
+				if ($resql) {
+					$arr = $db->fetch_array($resql);
+				}
+			}
+
+			for ($i = 1; $i < 8; $i++) {
+				$note_field = $var_prefix . 'note' . $i;
+				$name_field = $var_prefix . 'name' . $i;
+				
+				$note_value = isset($arr[$note_field]) ? htmlspecialchars($arr[$note_field], ENT_QUOTES, 'UTF-8') : '';
+				$name_value = isset($arr[$name_field]) ? htmlspecialchars($arr[$name_field], ENT_QUOTES, 'UTF-8') : '';
+
+				if ($is_edit_mode) {
+					print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td><input name="' . $note_field . '" value="' . $note_value . '"></td></tr>';
+					print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td><input name="' . $name_field . '" value="' . $name_value . '"></td></tr>';
+				} else {
 					print '<tr><td>' . $langs->trans('Note' . $i) . '</td><td>' . $note_value . '</td></tr>';
 					print '<tr><td>' . $langs->trans('Name' . $i) . '</td><td>' . $name_value . '</td></tr>';
 				}
-			} else {
-				// Show an error if data could not be fetched
-				print '<tr><td colspan="2">' . $langs->trans("ErrorFailedToFetchData") . '</td></tr>';
 			}
-		}
 
-		print '</table></div></div>';
-		print '<table class="border" width="100%">'; // Re-open a table for Dolibarr to continue its layout
+			print '</table></div></div>';
+			print '<table class="border" width="100%">';
+			return 0;
+		}
 
 		return 0; // OK
 	}
@@ -499,7 +524,7 @@ class modApproval extends DolibarrModules
 			array(41,'Rendimientos financieros originados en títulos valores de obligaciones de 360 días o más para el financiamiento de proyectos públicos en asociación público-privada','0','332','323U','1'),
 			array(42,'Intereses y comisiones en operaciones de crédito entre instituciones del sistema financiero y entidades economía popular y solidaria.','1','324','324A','1'),
 			array(43,'Inversiones entre instituciones del sistema financiero y entidades economía popular y solidaria','1','324','324B','1'),
-			array(44,'Pagos y créditos en cuenta efectuados por el BCE y los depósitos centralizados de valores, en calidad de intermediarios, a instituciones del sistema financiero por cuenta de otras instituciones del sistema financiero','1','324','324C','1'),
+			array(44,'Pagos y créditos en cuenta efectuados por el BCE y los depósitos centralizados de valores, en calidad de intermediarios, a institutions del sistema financiero por cuenta de otras instituciones del sistema financiero','1','324','324C','1'),
 			array(45,'Anticipo dividendos','22 ó 25','325','325','1'),
 			array(46,'Préstamos accionistas, beneficiarios o partícipes residentes o establecidos en el Ecuador','22 ó 25','325','325A','1'),
 			array(47,'Dividendos distribuidos que correspondan al impuesto a la renta único establecido en el art. 27 de la LRTI','Hasta 25 y conforme la Resolución NAC-DGERCGC20-000000013','326','326','1'),
@@ -608,3 +633,4 @@ class modApproval extends DolibarrModules
 		}
 	}
 }
+" in the canvas.
