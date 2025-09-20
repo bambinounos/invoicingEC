@@ -606,205 +606,61 @@ class modApproval extends DolibarrModules
 	 */
 	public function init($options = '')
 	{
-		global $conf, $langs;
-
-		//$result = $this->_load_tables('/install/mysql/', 'approval');
-		$result = $this->_load_tables('/approval/sql/');
-		if ($result < 0) {
-			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
-		}
-
-		// Create extrafields during init
-		//include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
-		//$extrafields = new ExtraFields($this->db);
-		//$result1=$extrafields->addExtraField('approval_myattr1', "New Attr 1 label", 'boolean', 1,  3, 'thirdparty',   0, 0, '', '', 1, '', 0, 0, '', '', 'approval@approval', '$conf->approval->enabled');
-		//$result2=$extrafields->addExtraField('approval_myattr2', "New Attr 2 label", 'varchar', 1, 10, 'project',      0, 0, '', '', 1, '', 0, 0, '', '', 'approval@approval', '$conf->approval->enabled');
-		//$result3=$extrafields->addExtraField('approval_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', 0, 0, '', '', 'approval@approval', '$conf->approval->enabled');
-		//$result4=$extrafields->addExtraField('approval_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', 0, 0, '', '', 'approval@approval', '$conf->approval->enabled');
-		//$result5=$extrafields->addExtraField('approval_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', 0, 0, '', '', 'approval@approval', '$conf->approval->enabled');
-
-		// Permissions
+		// First, remove any previous installation to start clean
 		$this->remove($options);
 
-		$sql = array();
-		chmod(DOL_DOCUMENT_ROOT . '/compta/facture/class', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/commande/class', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/compta/facture', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/commande', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/custom/approval', 0777);
+		dol_syslog(__METHOD__, LOG_DEBUG);
+		$this->db->begin();
 
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/langs/en_US/approval.lang';
-		$newfile = DOL_DOCUMENT_ROOT . '/langs/en_US/approval.lang';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
+		// Create table llx_order_info using Dolibarr's DDL functions for database compatibility
+		// This will work on both MySQL and PostgreSQL
+		$res = $this->db->ddl->createTable(
+			MAIN_DB_PREFIX.'order_info',
+			array(
+				'rowid'        => 'integer auto_increment PRIMARY KEY',
+				'fk_order'     => 'integer NOT NULL',
+				'approve_user' => 'integer',
+				'approve_date' => 'datetime'
+			),
+			null, null, 'InnoDB'
+		);
+
+		if ($res < 0) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			dol_print_error($this->db, 'Failed to create table llx_order_info. '.$this->error);
+			return -1;
 		}
 
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/langs/es_ES/approval.lang';
-		$newfile = DOL_DOCUMENT_ROOT . '/langs/es_ES/approval.lang';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
+		// Create table llx_user_info
+		$res = $this->db->ddl->createTable(
+			MAIN_DB_PREFIX.'user_info',
+			array(
+				'rowid'      => 'integer auto_increment PRIMARY KEY',
+				'fk_user'    => 'integer NOT NULL',
+				'is_approve' => 'integer DEFAULT 0',
+				'is_order'   => 'integer DEFAULT 0'
+			),
+			null, null, 'InnoDB'
+		);
+
+		if ($res < 0) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			dol_print_error($this->db, 'Failed to create table llx_user_info. '.$this->error);
+			return -1;
 		}
 
-		@rename(DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php', DOL_DOCUMENT_ROOT . '/compta/facture/class/facture_backup.class.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/facture.class.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
+		// This will handle enabling permissions, menus, etc., without trying to run SQL files again.
+		$result = parent::init($options, 1);
+		if ($result < 0) {
+			 $this->db->rollback();
+			 return -1;
 		}
 
-		@rename(DOL_DOCUMENT_ROOT . '/compta/facture/card.php', DOL_DOCUMENT_ROOT . '/compta/facture/card_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/card.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/compta/facture/card.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/compta/facture/list.php', DOL_DOCUMENT_ROOT . '/compta/facture/list_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/list.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/compta/facture/list.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/compta/paiement.php', DOL_DOCUMENT_ROOT . '/compta/paiement_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/paiement.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/compta/paiement.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement.class.php', DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement_backup.class.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/paiement.class.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement.class.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/core/tpl/card_presend.tpl.php', DOL_DOCUMENT_ROOT . '/core/tpl/card_presend_backup.tpl.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/card_presend.tpl.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/core/tpl/card_presend.tpl.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/core/class/commoninvoice.class.php', DOL_DOCUMENT_ROOT . '/core/class/commoninvoice_backup.class.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/commoninvoice.class.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/core/class/commoninvoice.class.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/commande/class/commande.class.php', DOL_DOCUMENT_ROOT . '/commande/class/commande_backup.class.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/order/commande.class.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/commande/class/commande.class.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/commande/card.php', DOL_DOCUMENT_ROOT . '/commande/card_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/order/card.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/commande/card.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/fourn/class/fournisseur.facture.class.php', DOL_DOCUMENT_ROOT . '/fourn/class/fournisseur_backup.facture.class.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/vendor/fournisseur.facture.class.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/fourn/class/fournisseur.facture.class.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/core/lib/fourn.lib.php', DOL_DOCUMENT_ROOT . '/core/lib/fourn_backup.lib.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/vendor/fourn.lib.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/core/lib/fourn.lib.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/vendor/vendor.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/fourn/facture/vendor.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/core/actions_sendmails.inc.php', DOL_DOCUMENT_ROOT . '/core/actions_sendmails_backup.inc.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/vendor/actions_sendmails.inc.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/core/actions_sendmails.inc.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/fourn/commande/card.php', DOL_DOCUMENT_ROOT . '/fourn/commande/card_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/vendor/card.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/fourn/commande/card.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-		@rename(DOL_DOCUMENT_ROOT . '/fourn/facture/card.php', DOL_DOCUMENT_ROOT . '/fourn/commande/card_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/fourn/card.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/fourn/facture/card.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/expedition/card.php', DOL_DOCUMENT_ROOT . '/expedition/card_backup.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/ship/card.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/expedition/card.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		@rename(DOL_DOCUMENT_ROOT . '/expedition/class/expedition.class.php', DOL_DOCUMENT_ROOT . '/expedition/class/expedition_backup.class.php');
-		$file = DOL_DOCUMENT_ROOT . '/custom/approval/backup/ship/expedition.class.php';
-		$newfile = DOL_DOCUMENT_ROOT . '/expedition/class/expedition.class.php';
-		if (!copy($file, $newfile)) {
-			echo "failed to copy $file...\n";
-		}
-
-		chmod(DOL_DOCUMENT_ROOT . '/compta/facture/class', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/commande/class', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/compta/facture', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/commande', 0777);
-		chmod(DOL_DOCUMENT_ROOT . '/custom/approval/*.*', 0777);
-
-		// Document templates
-		$moduledir = dol_sanitizeFileName('approval');
-		$myTmpObjects = array();
-		$myTmpObjects['MyObject'] = array('includerefgeneration' => 0, 'includedocgeneration' => 0);
-
-		foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
-			if ($myTmpObjectKey == 'MyObject') {
-				continue;
-			}
-			if ($myTmpObjectArray['includerefgeneration']) {
-				$src = DOL_DOCUMENT_ROOT . '/install/doctemplates/' . $moduledir . '/template_myobjects.odt';
-				$dirodt = DOL_DATA_ROOT . '/doctemplates/' . $moduledir;
-				$dest = $dirodt . '/template_myobjects.odt';
-
-				if (file_exists($src) && !file_exists($dest)) {
-					require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
-					dol_mkdir($dirodt);
-					$result = dol_copy($src, $dest, 0, 0);
-					if ($result < 0) {
-						$langs->load("errors");
-						$this->error = $langs->trans('ErrorFailToCopyFile', $src, $dest);
-						return 0;
-					}
-				}
-
-				$sql = array_merge($sql, array(
-					"DELETE FROM " . MAIN_DB_PREFIX . "document_model WHERE nom = 'standard_" . strtolower($myTmpObjectKey) . "' AND type = '" . $this->db->escape(strtolower($myTmpObjectKey)) . "' AND entity = " . ((int) $conf->entity),
-					"INSERT INTO " . MAIN_DB_PREFIX . "document_model (nom, type, entity) VALUES('standard_" . strtolower($myTmpObjectKey) . "', '" . $this->db->escape(strtolower($myTmpObjectKey)) . "', " . ((int) $conf->entity) . ")",
-					"DELETE FROM " . MAIN_DB_PREFIX . "document_model WHERE nom = 'generic_" . strtolower($myTmpObjectKey) . "_odt' AND type = '" . $this->db->escape(strtolower($myTmpObjectKey)) . "' AND entity = " . ((int) $conf->entity),
-					"INSERT INTO " . MAIN_DB_PREFIX . "document_model (nom, type, entity) VALUES('generic_" . strtolower($myTmpObjectKey) . "_odt', '" . $this->db->escape(strtolower($myTmpObjectKey)) . "', " . ((int) $conf->entity) . ")"
-				));
-			}
-		}
-
-		return $this->_init($sql, $options);
+		$this->db->commit();
+		return 1;
 	}
-
 	/**
 	 *  Function called when module is disabled.
 	 *  Remove from database constants, boxes and permissions from Dolibarr database.
@@ -815,7 +671,22 @@ class modApproval extends DolibarrModules
 	 */
 	public function remove($options = '')
 	{
-		$sql = array();
-		return $this->_remove($sql, $options);
+		dol_syslog(__METHOD__, LOG_DEBUG);
+		$this->db->begin();
+
+		// Drop tables using Dolibarr's DDL functions
+		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'order_info');
+		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'user_info');
+
+		// This will handle disabling permissions, menus, etc.
+		$result = parent::remove($options, 1);
+        if ($result < 0) {
+            $this->db->rollback();
+            return -1;
+        }
+
+		$this->db->commit();
+		return 1;
 	}
+
 }
