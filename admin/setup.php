@@ -43,6 +43,11 @@ $result = restrictedArea($user, 'fournisseur', $id, 'commande_fournisseur', 'com
 	print "</form>";
 	print '</div>';
 
+    // Add button to go to settings
+    print '<br><div class="tabsAction">';
+    print '<a class="butAction" href="'.dol_buildpath('/approval/approval_setting.php', 1).'">'.$langs->trans("ApprovalSetting").'</a>';
+    print '</div>';
+
 
 // phpinfo();
 // Load Dolibarr environment
