@@ -39,11 +39,11 @@ class modApproval extends DolibarrModules
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
-		// Remove previous install attempts
-		$this->remove($options);
-
 		$this->db->begin();
 		try {
+			// Remove previous install attempts
+			$this->remove($options);
+
 			$this->_create_tables_and_columns();
 			$this->_insert_initial_data();
 			$this->_create_extrafields(); // Use the standard ExtraFields system
@@ -72,7 +72,19 @@ class modApproval extends DolibarrModules
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
-		$this->db->begin();
+		$started_transaction = false;
+		// Check if inTransaction method exists before calling it to avoid Fatal Error on older/custom DB drivers
+		if (method_exists($this->db, 'inTransaction')) {
+			if (!$this->db->inTransaction()) {
+				$this->db->begin();
+				$started_transaction = true;
+			}
+		} else {
+			// Fallback: assume no transaction started, or force one if we could check driver.
+			// But for safety, we just start one if we are likely not in one, or just proceed.
+			// Given init() calls begin(), we are inside one.
+		}
+
 		try {
 			$this->_delete_extrafields(); // Cleanly remove ExtraFields
 			$this->_drop_tables_and_columns();
@@ -80,20 +92,22 @@ class modApproval extends DolibarrModules
 			$this->error = $e->getMessage();
 			dol_syslog("Error remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
-			$this->db->rollback();
+			if ($started_transaction) $this->db->rollback();
 			return -1;
 		} catch (\Exception $e) {
 			$this->error = $e->getMessage();
 			dol_syslog("Exception remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
-			$this->db->rollback();
+			if ($started_transaction) $this->db->rollback();
 			return -1;
 		}
 
 		if (parent::remove($options) < 0) {
-			$this->db->rollback(); return -1;
+			if ($started_transaction) $this->db->rollback();
+			return -1;
 		}
-		$this->db->commit();
+
+		if ($started_transaction) $this->db->commit();
 		return 1;
 	}
 
@@ -117,10 +131,6 @@ class modApproval extends DolibarrModules
 		foreach ($tables as $table => $def) {
 			$sql = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . $table . " ($def)";
 			if (!$this->db->query($sql)) {
-				// We don't throw exception here to avoid breaking installation if table exists but IF NOT EXISTS isn't supported (rare)
-				// But standard behavior is to throw if something goes really wrong.
-				// However, if table exists, IF NOT EXISTS handles it.
-				// If syntax error, we should log.
 				dol_syslog("Error creating table $table: " . $this->db->lasterror(), LOG_ERR);
 			}
 		}
@@ -140,14 +150,14 @@ class modApproval extends DolibarrModules
 
 		foreach ($cols_to_add as $table => $columns) {
 			foreach ($columns as $col => $def) {
-				// Standard SQL ADD COLUMN. We try to execute it.
 				$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN " . $col . " " . $def;
-
-				// Attempt to execute. Suppress error logs using 'suppress'
+				if ($this->db->type == 'pgsql') {
+					$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN IF NOT EXISTS " . $col . " " . $def;
+				}
 				try {
 					$this->db->query($sql, 0, 'suppress');
 				} catch (\Throwable $e) {
-					// Ignore errors which might happen if column exists
+					// Ignore
 				}
 			}
 		}
@@ -159,7 +169,7 @@ class modApproval extends DolibarrModules
 			$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', 'DON-,MANN-,/')");
 			$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias) VALUES (1, 1, 1, 1, 1, 1, 'Alias name')");
 		} catch (\Throwable $e) {
-			// Ignore duplicate key errors if data already exists
+			// Ignore
 		}
 
 		$incomeData = array(
@@ -309,10 +319,12 @@ class modApproval extends DolibarrModules
         
         foreach ($elements as $elementtype => $fields) {
             foreach ($fields as $name => $params) {
-                // Pass '' instead of $user to avoid Type Error
-				// Dolibarr 17 addExtraField signature has $list as 13th arg (int).
-				// We supply up to 12th ($perms), letting defaults handle rest.
-                $res = $extrafields->addExtraField($name, $params['label'], $params['type'], $params['pos'], '', $elementtype, 0, 0, '', '', 1, '');
+                // Pass array() as 10th arg ($param) to avoid Type Error.
+				// Pass '' as 12th arg ($perms).
+				// Pass 1 or 0 for $list (13th). Default is 0.
+				// Pass '' for $help (14th).
+				// Do not pass $user object anywhere.
+                $res = $extrafields->addExtraField($name, $params['label'], $params['type'], $params['pos'], '', $elementtype, 0, 0, '', array(), 1, '', 0, '');
                  if ($res < 0) {
                     dol_syslog("Error creating extrafield ".$name." for ".$elementtype, LOG_ERR);
                  }
