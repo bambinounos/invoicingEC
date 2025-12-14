@@ -24,7 +24,7 @@ class modApproval extends DolibarrModules
 		$this->version = '18.0.0-final'; // Definitive final version
 		$this->const_name = 'MAIN_MODULE_' . strtoupper($this->name);
 		$this->picto = 'approval.png';
-		$this->module_parts = array('triggers' => 1);
+		$this->module_parts = array('triggers' => 1, 'hooks' => array('invoicecard', 'ordercard', 'shippingcard', 'invoice_supplier_card', 'order_supplier_card'));
 		$this->config_page_url = array("setup.php@approval");
 		$this->depends = array('modSociete');
 		$this->langfiles = array("approval");
@@ -79,10 +79,17 @@ class modApproval extends DolibarrModules
 
 	private function _create_tables_and_columns()
 	{
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'order_info', ['rowid'=>'integer auto_increment PRIMARY KEY','ck_purpose'=>'integer NOT NULL DEFAULT 1','ck_invoice_number'=>'integer','ck_note_number'=>'integer','ck_alias'=>'text','ck_taxpayer'=>'text','ck_keep'=>'text','ck_microenterprise'=>'text','ck_agent'=>'text','ck_prefixmark'=>'text']);
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'user_info', ['rowid'=>'integer auto_increment PRIMARY KEY','fk_purpose'=>'integer NOT NULL DEFAULT 1','fk_invoice_number'=>'integer','fk_note_number'=>'integer','fk_vendor_number'=>'integer','fk_debit_number'=>'integer','fk_alias'=>'text','fk_taxpayer'=>'text','fk_keep'=>'text','fk_microenterprise'=>'text','fk_agent'=>'text']);
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'vendor', ['rowid'=>'integer auto_increment PRIMARY KEY','a'=>'text NOT NULL','b'=>'text NOT NULL','c'=>'text NOT NULL','d'=>'double(24,2) DEFAULT 0','e'=>'double(24,2) DEFAULT 0','f'=>'double(24,2) DEFAULT 0','g'=>'text NOT NULL','h'=>'date','i'=>'text NOT NULL','j'=>'text NOT NULL','id'=>'integer']);
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'income', ['rowid'=>'integer auto_increment PRIMARY KEY','detail'=>'text NOT NULL','value'=>'text NOT NULL','form'=>'text NOT NULL','code'=>'text NOT NULL','type'=>'text NOT NULL']);
+		$rowid_type = 'integer AUTO_INCREMENT PRIMARY KEY';
+		$double_type = 'double(24,2)';
+		if ($this->db->type == 'pgsql') {
+			$rowid_type = 'SERIAL PRIMARY KEY';
+			$double_type = 'numeric(24,2)';
+		}
+
+		$this->db->ddl->createTable(MAIN_DB_PREFIX.'order_info', ['rowid'=>$rowid_type,'ck_purpose'=>'integer NOT NULL DEFAULT 1','ck_invoice_number'=>'integer','ck_note_number'=>'integer','ck_alias'=>'text','ck_taxpayer'=>'text','ck_keep'=>'text','ck_microenterprise'=>'text','ck_agent'=>'text','ck_prefixmark'=>'text']);
+		$this->db->ddl->createTable(MAIN_DB_PREFIX.'user_info', ['rowid'=>$rowid_type,'fk_purpose'=>'integer NOT NULL DEFAULT 1','fk_invoice_number'=>'integer','fk_note_number'=>'integer','fk_vendor_number'=>'integer','fk_debit_number'=>'integer','fk_alias'=>'text','fk_taxpayer'=>'text','fk_keep'=>'text','fk_microenterprise'=>'text','fk_agent'=>'text']);
+		$this->db->ddl->createTable(MAIN_DB_PREFIX.'vendor', ['rowid'=>$rowid_type,'a'=>'text NOT NULL','b'=>'text NOT NULL','c'=>'text NOT NULL','d'=>$double_type.' DEFAULT 0','e'=>$double_type.' DEFAULT 0','f'=>$double_type.' DEFAULT 0','g'=>'text NOT NULL','h'=>'date','i'=>'text NOT NULL','j'=>'text NOT NULL','id'=>'integer']);
+		$this->db->ddl->createTable(MAIN_DB_PREFIX.'income', ['rowid'=>$rowid_type,'detail'=>'text NOT NULL','value'=>'text NOT NULL','form'=>'text NOT NULL','code'=>'text NOT NULL','type'=>'text NOT NULL']);
 		$this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso', 'text');
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
 		foreach ($cols_common as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande', $col, $def); $this->db->ddl->addColumn(MAIN_DB_PREFIX.'expedition', $col, $def); }
@@ -171,6 +178,12 @@ class modApproval extends DolibarrModules
 			$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (";
 			$sql .= $row[0].", '".$this->db->escape($row[1])."', '".$this->db->escape($row[2])."', '".$this->db->escape($row[3])."', '".$this->db->escape($row[4])."', '".$this->db->escape($row[5])."')";
 			$this->db->query($sql);
+		}
+
+		if ($this->db->type == 'pgsql') {
+			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."order_info_rowid_seq', (SELECT MAX(rowid) FROM ".MAIN_DB_PREFIX."order_info))");
+			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."user_info_rowid_seq', (SELECT MAX(rowid) FROM ".MAIN_DB_PREFIX."user_info))");
+			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."income_rowid_seq', (SELECT MAX(rowid) FROM ".MAIN_DB_PREFIX."income))");
 		}
 	}
 
