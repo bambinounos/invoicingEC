@@ -38,18 +38,29 @@ class modApproval extends DolibarrModules
 	public function init($options = '')
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
+
+		// Remove previous install attempts
 		$this->remove($options);
+
 		$this->db->begin();
 		try {
 			$this->_create_tables_and_columns();
 			$this->_insert_initial_data();
 			$this->_create_extrafields(); // Use the standard ExtraFields system
-		} catch (Exception $e) {
+		} catch (\Throwable $e) {
 			$this->error = $e->getMessage();
+			dol_syslog("Error init approval: ".$this->error, LOG_ERR);
+			dol_print_error($this->db, $this->error);
+			$this->db->rollback();
+			return -1;
+		} catch (\Exception $e) {
+			$this->error = $e->getMessage();
+			dol_syslog("Exception init approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
 			$this->db->rollback();
 			return -1;
 		}
+
 		if (parent::init($options) < 0) {
 			$this->db->rollback(); return -1;
 		}
@@ -60,16 +71,25 @@ class modApproval extends DolibarrModules
 	public function remove($options = '')
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
+
 		$this->db->begin();
 		try {
 			$this->_delete_extrafields(); // Cleanly remove ExtraFields
 			$this->_drop_tables_and_columns();
-		} catch (Exception $e) {
+		} catch (\Throwable $e) {
 			$this->error = $e->getMessage();
+			dol_syslog("Error remove approval: ".$this->error, LOG_ERR);
+			dol_print_error($this->db, $this->error);
+			$this->db->rollback();
+			return -1;
+		} catch (\Exception $e) {
+			$this->error = $e->getMessage();
+			dol_syslog("Exception remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
 			$this->db->rollback();
 			return -1;
 		}
+
 		if (parent::remove($options) < 0) {
 			$this->db->rollback(); return -1;
 		}
@@ -96,7 +116,9 @@ class modApproval extends DolibarrModules
 
 		foreach ($tables as $table => $def) {
 			$sql = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . $table . " ($def)";
-			$this->db->query($sql);
+			if (!$this->db->query($sql)) {
+				throw new Exception("Error creating table $table: " . $this->db->lasterror());
+			}
 		}
 
 		// Columns to add
@@ -246,6 +268,7 @@ class modApproval extends DolibarrModules
     private function _create_extrafields()
     {
         global $user;
+		require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
         $extrafields = new ExtraFields($this->db);
         $common_fields = array();
         for ($i = 1; $i <= 7; $i++) {
@@ -274,6 +297,7 @@ class modApproval extends DolibarrModules
 
     private function _delete_extrafields()
     {
+		require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
         $extrafields = new ExtraFields($this->db);
         $common_fields = array();
         for ($i = 1; $i <= 7; $i++) {
