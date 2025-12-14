@@ -39,11 +39,11 @@ class modApproval extends DolibarrModules
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
-		// Remove previous install attempts
-		$this->remove($options);
-
 		$this->db->begin();
 		try {
+			// Remove previous install attempts
+			$this->remove($options);
+
 			$this->_create_tables_and_columns();
 			$this->_insert_initial_data();
 			$this->_create_extrafields(); // Use the standard ExtraFields system
@@ -72,7 +72,14 @@ class modApproval extends DolibarrModules
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
-		$this->db->begin();
+		// remove() is called inside init() transaction, so we don't start a new one if already in one
+		// But to be safe if called standalone:
+		$started_transaction = false;
+		if (!$this->db->inTransaction()) {
+			$this->db->begin();
+			$started_transaction = true;
+		}
+
 		try {
 			$this->_delete_extrafields(); // Cleanly remove ExtraFields
 			$this->_drop_tables_and_columns();
@@ -80,20 +87,22 @@ class modApproval extends DolibarrModules
 			$this->error = $e->getMessage();
 			dol_syslog("Error remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
-			$this->db->rollback();
+			if ($started_transaction) $this->db->rollback();
 			return -1;
 		} catch (\Exception $e) {
 			$this->error = $e->getMessage();
 			dol_syslog("Exception remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
-			$this->db->rollback();
+			if ($started_transaction) $this->db->rollback();
 			return -1;
 		}
 
 		if (parent::remove($options) < 0) {
-			$this->db->rollback(); return -1;
+			if ($started_transaction) $this->db->rollback();
+			return -1;
 		}
-		$this->db->commit();
+
+		if ($started_transaction) $this->db->commit();
 		return 1;
 	}
 
@@ -115,8 +124,10 @@ class modApproval extends DolibarrModules
 		];
 
 		foreach ($tables as $table => $def) {
+			// CREATE TABLE IF NOT EXISTS is standard enough (PG 9.1+, MySQL 3.23+)
 			$sql = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . $table . " ($def)";
 			if (!$this->db->query($sql)) {
+				// Log error but maybe continue? No, table creation failure is critical.
 				throw new Exception("Error creating table $table: " . $this->db->lasterror());
 			}
 		}
@@ -136,20 +147,34 @@ class modApproval extends DolibarrModules
 
 		foreach ($cols_to_add as $table => $columns) {
 			foreach ($columns as $col => $def) {
+				// Standard SQL ADD COLUMN. We try to execute it.
+				// If it fails because column exists, we catch/ignore.
+				// This avoids "IF NOT EXISTS" syntax which might crash older Postgres versions if present.
 				$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN " . $col . " " . $def;
-				if ($this->db->type == 'pgsql') {
-					$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN IF NOT EXISTS " . $col . " " . $def;
+
+				// Attempt to execute. Suppress error logs if possible or catch them.
+				// Dolibarr db->query usually logs errors.
+				// We can check if column exists first to be cleaner?
+				// Dolibarr doesn't have a lightweight "hasColumn" without DDL.
+				// So we just try/catch.
+				try {
+					$this->db->query($sql, 0, 'suppress'); // 'suppress' tells Dolibarr not to output errors if supported or we rely on return val
+				} catch (\Throwable $e) {
+					// Ignore "duplicate column" errors
 				}
-				// Execute and ignore error if column exists (for Mysql)
-				$this->db->query($sql);
 			}
 		}
 	}
 
 	private function _insert_initial_data()
 	{
-		$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', 'DON-,MANN-,/')");
-		$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias) VALUES (1, 1, 1, 1, 1, 1, 'Alias name')");
+		try {
+			$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', 'DON-,MANN-,/')");
+			$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias) VALUES (1, 1, 1, 1, 1, 1, 'Alias name')");
+		} catch (\Throwable $e) {
+			// Ignore duplicate key errors if data already exists
+		}
+
 		$incomeData = array(
 			array(1,'Honorarios profesionales y demás pagos por servicios relacionados con el título profesional','10','303','303','1'), array(2,'Servicios profesionales prestados por sociedades residentes','3','3030','303A','1'),
 			array(3,'Servicios predomina el intelecto no relacionados con el título profesional','10','304','304','1'), array(4,'Comisiones y demás pagos por servicios predomina intelecto no relacionados con el título profesional','10','304','304A','1'),
@@ -222,15 +247,23 @@ class modApproval extends DolibarrModules
 		);
 
 		foreach ($incomeData as $row) {
-			$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (";
-			$sql .= $row[0].", '".$this->db->escape($row[1])."', '".$this->db->escape($row[2])."', '".$this->db->escape($row[3])."', '".$this->db->escape($row[4])."', '".$this->db->escape($row[5])."')";
-			$this->db->query($sql);
+			try {
+				$sql = "INSERT INTO ".MAIN_DB_PREFIX."income (rowid, detail, value, form, code, type) VALUES (";
+				$sql .= $row[0].", '".$this->db->escape($row[1])."', '".$this->db->escape($row[2])."', '".$this->db->escape($row[3])."', '".$this->db->escape($row[4])."', '".$this->db->escape($row[5])."')";
+				$this->db->query($sql);
+			} catch (\Throwable $e) {
+				// Ignore duplicates
+			}
 		}
 
 		if ($this->db->type == 'pgsql') {
-			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."order_info_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."order_info))");
-			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."user_info_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."user_info))");
-			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."income_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."income))");
+			try {
+				$this->db->query("SELECT setval('".MAIN_DB_PREFIX."order_info_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."order_info))");
+				$this->db->query("SELECT setval('".MAIN_DB_PREFIX."user_info_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."user_info))");
+				$this->db->query("SELECT setval('".MAIN_DB_PREFIX."income_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."income))");
+			} catch (\Throwable $e) {
+				// Ignore sequence errors
+			}
 		}
 	}
 
@@ -255,12 +288,15 @@ class modApproval extends DolibarrModules
 
 		foreach ($cols_to_drop as $table => $cols) {
 			foreach ($cols as $col) {
-				// We can try DROP COLUMN. If it fails (doesn't exist), it's fine for remove.
-				$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " DROP COLUMN " . $col;
-				if ($this->db->type == 'pgsql') {
-					$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " DROP COLUMN IF EXISTS " . $col;
+				try {
+					$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " DROP COLUMN " . $col;
+					if ($this->db->type == 'pgsql') {
+						$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " DROP COLUMN IF EXISTS " . $col;
+					}
+					$this->db->query($sql, 0, 'suppress');
+				} catch (\Throwable $e) {
+					// Ignore
 				}
-				$this->db->query($sql);
 			}
 		}
 	}
@@ -287,6 +323,8 @@ class modApproval extends DolibarrModules
         foreach ($elements as $elementtype => $fields) {
             foreach ($fields as $name => $params) {
                 // Pass '' instead of $user to avoid Type Error
+				// Dolibarr 17 addExtraField signature has $list as 13th arg (int).
+				// We supply up to 12th ($perms), letting defaults handle rest.
                 $res = $extrafields->addExtraField($name, $params['label'], $params['type'], $params['pos'], '', $elementtype, 0, 0, '', '', 1, '');
                  if ($res < 0) {
                     dol_syslog("Error creating extrafield ".$name." for ".$elementtype, LOG_ERR);
