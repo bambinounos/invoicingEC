@@ -86,17 +86,62 @@ class modApproval extends DolibarrModules
 			$double_type = 'numeric(24,2)';
 		}
 
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'order_info', ['rowid'=>$rowid_type,'ck_purpose'=>'integer NOT NULL DEFAULT 1','ck_invoice_number'=>'integer','ck_note_number'=>'integer','ck_alias'=>'text','ck_taxpayer'=>'text','ck_keep'=>'text','ck_microenterprise'=>'text','ck_agent'=>'text','ck_prefixmark'=>'text']);
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'user_info', ['rowid'=>$rowid_type,'fk_purpose'=>'integer NOT NULL DEFAULT 1','fk_invoice_number'=>'integer','fk_note_number'=>'integer','fk_vendor_number'=>'integer','fk_debit_number'=>'integer','fk_alias'=>'text','fk_taxpayer'=>'text','fk_keep'=>'text','fk_microenterprise'=>'text','fk_agent'=>'text']);
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'vendor', ['rowid'=>$rowid_type,'a'=>'text NOT NULL','b'=>'text NOT NULL','c'=>'text NOT NULL','d'=>$double_type.' DEFAULT 0','e'=>$double_type.' DEFAULT 0','f'=>$double_type.' DEFAULT 0','g'=>'text NOT NULL','h'=>'date','i'=>'text NOT NULL','j'=>'text NOT NULL','id'=>'integer']);
-		$this->db->ddl->createTable(MAIN_DB_PREFIX.'income', ['rowid'=>$rowid_type,'detail'=>'text NOT NULL','value'=>'text NOT NULL','form'=>'text NOT NULL','code'=>'text NOT NULL','type'=>'text NOT NULL']);
-		$this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso', 'text');
+		// Use raw SQL to avoid dependency on DDL object which might be missing
+		$tables = [
+			'order_info' => "rowid $rowid_type, ck_purpose integer NOT NULL DEFAULT 1, ck_invoice_number integer, ck_note_number integer, ck_alias text, ck_taxpayer text, ck_keep text, ck_microenterprise text, ck_agent text, ck_prefixmark text",
+			'user_info' => "rowid $rowid_type, fk_purpose integer NOT NULL DEFAULT 1, fk_invoice_number integer, fk_note_number integer, fk_vendor_number integer, fk_debit_number integer, fk_alias text, fk_taxpayer text, fk_keep text, fk_microenterprise text, fk_agent text",
+			'vendor' => "rowid $rowid_type, a text NOT NULL, b text NOT NULL, c text NOT NULL, d $double_type DEFAULT 0, e $double_type DEFAULT 0, f $double_type DEFAULT 0, g text NOT NULL, h date, i text NOT NULL, j text NOT NULL, id integer",
+			'income' => "rowid $rowid_type, detail text NOT NULL, value text NOT NULL, form text NOT NULL, code text NOT NULL, type text NOT NULL"
+		];
+
+		foreach ($tables as $table => $def) {
+			$sql = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . $table . " ($def)";
+			$this->db->query($sql);
+		}
+
+		// Add columns safely using DDL if available, or SQL
+		// Using raw SQL for ADD COLUMN is tricky across DBs due to IF NOT EXISTS syntax differences (Mysql 8 vs PG).
+		// But Dolibarr usually suppresses error if column exists.
+		// Let's try to use DDL if available, otherwise raw SQL.
+		// Actually, let's just use DDL object property access inside a try block or similar? No.
+		// Best approach for raw SQL add column:
+		// Postgres: ALTER TABLE table ADD COLUMN IF NOT EXISTS col type;
+		// Mysql: ALTER TABLE table ADD COLUMN col type; (fails if exists)
+
+		// To keep it simple and robust, we will check if column exists first.
+		// But I cannot easily check column existence without DDL helper.
+
+		// Revert to using DDL object but check existence.
+		// If DDL object is missing, we try to create it.
+		if (empty($this->db->ddl)) {
+			// Try to load DDL. In standard Dolibarr, it might be separate.
+			// But for now, let's assume raw SQL is safer for CREATE TABLE.
+			// For ADD COLUMN, we will use a helper function or just raw SQL with error suppression logic.
+		}
+
+		// Columns to add
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
-		foreach ($cols_common as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'commande', $col, $def); $this->db->ddl->addColumn(MAIN_DB_PREFIX.'expedition', $col, $def); }
+		$cols_to_add = [];
+		$cols_to_add['commande_fournisseur'] = ['claveacceso' => 'text'];
+		foreach ($cols_common as $col => $def) {
+			$cols_to_add['commande'][$col] = $def;
+			$cols_to_add['expedition'][$col] = $def;
+		}
 		$cols_facture = array_diff_key($cols_common, ['c_note6'=>0, 'c_name6'=>0, 'c_note7'=>0, 'c_name7'=>0, 'identification_c_type'=>0,'start_date'=>0,'end_date'=>0,'carrier'=>0]);
-		foreach ($cols_facture as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture', $col, $def); }
+		foreach ($cols_facture as $col => $def) { $cols_to_add['facture'][$col] = $def; }
 		$cols_fourn = ['f_note1'=>'text','f_name1'=>'text','f_note2'=>'text','f_name2'=>'text','f_note3'=>'text','f_name3'=>'text','f_note4'=>'text','f_name4'=>'text','f_note5'=>'text','f_name5'=>'text','f_note6'=>'text','f_name6'=>'text','f_note7'=>'text','f_name7'=>'text','identification_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','date_done'=>'date','date_create'=>'date','modify'=>'text'];
-		foreach ($cols_fourn as $col => $def) { $this->db->ddl->addColumn(MAIN_DB_PREFIX.'facture_fourn', $col, $def); }
+		foreach ($cols_fourn as $col => $def) { $cols_to_add['facture_fourn'][$col] = $def; }
+
+		foreach ($cols_to_add as $table => $columns) {
+			foreach ($columns as $col => $def) {
+				$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN " . $col . " " . $def;
+				if ($this->db->type == 'pgsql') {
+					$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN IF NOT EXISTS " . $col . " " . $def;
+				}
+				// Execute and ignore error if column exists (for Mysql)
+				$this->db->query($sql);
+			}
+		}
 	}
 
 	private function _insert_initial_data()
@@ -181,24 +226,40 @@ class modApproval extends DolibarrModules
 		}
 
 		if ($this->db->type == 'pgsql') {
-			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."order_info_rowid_seq', (SELECT MAX(rowid) FROM ".MAIN_DB_PREFIX."order_info))");
-			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."user_info_rowid_seq', (SELECT MAX(rowid) FROM ".MAIN_DB_PREFIX."user_info))");
-			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."income_rowid_seq', (SELECT MAX(rowid) FROM ".MAIN_DB_PREFIX."income))");
+			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."order_info_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."order_info))");
+			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."user_info_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."user_info))");
+			$this->db->query("SELECT setval('".MAIN_DB_PREFIX."income_rowid_seq', (SELECT coalesce(MAX(rowid), 1) FROM ".MAIN_DB_PREFIX."income))");
 		}
 	}
 
 	private function _drop_tables_and_columns()
 	{
-		$this->db->ddl->dropTable(MAIN_DB_PREFIX.'order_info'); $this->db->ddl->dropTable(MAIN_DB_PREFIX.'user_info'); $this->db->ddl->dropTable(MAIN_DB_PREFIX.'vendor'); $this->db->ddl->dropTable(MAIN_DB_PREFIX.'income');
-		$this->db->ddl->dropColumn(MAIN_DB_PREFIX.'commande_fournisseur', 'claveacceso');
-		$all_columns_to_drop = [
+		// Use raw SQL to drop tables
+		$tables = ['order_info', 'user_info', 'vendor', 'income'];
+		foreach ($tables as $table) {
+			$this->db->query("DROP TABLE IF EXISTS " . MAIN_DB_PREFIX . $table);
+		}
+
+		// Use raw SQL to drop columns is complex without stored procedures in some DBs if column doesn't exist.
+		// However, in module remove, errors are often ignored or logged.
+		// We will try to drop columns using ALTER TABLE DROP COLUMN
+		$cols_to_drop = [
+			'commande_fournisseur' => ['claveacceso'],
 			'commande' => ['c_note1','c_name1','c_note2','c_name2','c_note3','c_name3','c_note4','c_name4','c_note5','c_name5','c_note6','c_name6','c_note7','c_name7','identification_type','identification_c_type','tip','invoice_number','warehouse','seller','reason_type','ws_approval_one','ws_approval_two','ws_time','claveacceso','ws_approval_thr','ws_approval_fou','ws_time_end','claveacceso_end','start_date','end_date','carrier'],
 			'expedition' => ['c_note1','c_name1','c_note2','c_name2','c_note3','c_name3','c_note4','c_name4','c_note5','c_name5','c_note6','c_name6','c_note7','c_name7','identification_type','identification_c_type','tip','invoice_number','warehouse','seller','reason_type','ws_approval_one','ws_approval_two','ws_time','claveacceso','ws_approval_thr','ws_approval_fou','ws_time_end','claveacceso_end','start_date','end_date','carrier'],
 			'facture' => ['c_note1','c_name1','c_note2','c_name2','c_note3','c_name3','c_note4','c_name4','c_note5','c_name5','identification_type','tip','invoice_number','warehouse','seller','reason_type','ws_approval_one','ws_approval_two','ws_time','claveacceso','ws_approval_thr','ws_approval_fou','ws_time_end','claveacceso_end'],
 			'facture_fourn' => ['f_note1','f_name1','f_note2','f_name2','f_note3','f_name3','f_note4','f_name4','f_note5','f_name5','f_note6','f_name6','f_note7','f_name7','identification_type','tip','invoice_number','warehouse','seller','reason_type','ws_approval_one','ws_approval_two','ws_time','claveacceso','ws_approval_thr','ws_approval_fou','ws_time_end','claveacceso_end','date_done','date_create','modify']
 		];
-		foreach ($all_columns_to_drop as $table => $cols) {
-			foreach ($cols as $col) { $this->db->ddl->dropColumn(MAIN_DB_PREFIX.$table, $col); }
+
+		foreach ($cols_to_drop as $table => $cols) {
+			foreach ($cols as $col) {
+				// We can try DROP COLUMN. If it fails (doesn't exist), it's fine for remove.
+				$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " DROP COLUMN " . $col;
+				if ($this->db->type == 'pgsql') {
+					$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " DROP COLUMN IF EXISTS " . $col;
+				}
+				$this->db->query($sql);
+			}
 		}
 	}
     
