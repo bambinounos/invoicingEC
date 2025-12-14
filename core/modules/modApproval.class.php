@@ -39,11 +39,11 @@ class modApproval extends DolibarrModules
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
+		// Remove previous install attempts
+		$this->remove($options);
+
 		$this->db->begin();
 		try {
-			// Remove previous install attempts
-			$this->remove($options);
-
 			$this->_create_tables_and_columns();
 			$this->_insert_initial_data();
 			$this->_create_extrafields(); // Use the standard ExtraFields system
@@ -72,14 +72,7 @@ class modApproval extends DolibarrModules
 	{
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
-		// remove() is called inside init() transaction, so we don't start a new one if already in one
-		// But to be safe if called standalone:
-		$started_transaction = false;
-		if (!$this->db->inTransaction()) {
-			$this->db->begin();
-			$started_transaction = true;
-		}
-
+		$this->db->begin();
 		try {
 			$this->_delete_extrafields(); // Cleanly remove ExtraFields
 			$this->_drop_tables_and_columns();
@@ -87,22 +80,20 @@ class modApproval extends DolibarrModules
 			$this->error = $e->getMessage();
 			dol_syslog("Error remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
-			if ($started_transaction) $this->db->rollback();
+			$this->db->rollback();
 			return -1;
 		} catch (\Exception $e) {
 			$this->error = $e->getMessage();
 			dol_syslog("Exception remove approval: ".$this->error, LOG_ERR);
 			dol_print_error($this->db, $this->error);
-			if ($started_transaction) $this->db->rollback();
+			$this->db->rollback();
 			return -1;
 		}
 
 		if (parent::remove($options) < 0) {
-			if ($started_transaction) $this->db->rollback();
-			return -1;
+			$this->db->rollback(); return -1;
 		}
-
-		if ($started_transaction) $this->db->commit();
+		$this->db->commit();
 		return 1;
 	}
 
@@ -124,11 +115,13 @@ class modApproval extends DolibarrModules
 		];
 
 		foreach ($tables as $table => $def) {
-			// CREATE TABLE IF NOT EXISTS is standard enough (PG 9.1+, MySQL 3.23+)
 			$sql = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . $table . " ($def)";
 			if (!$this->db->query($sql)) {
-				// Log error but maybe continue? No, table creation failure is critical.
-				throw new Exception("Error creating table $table: " . $this->db->lasterror());
+				// We don't throw exception here to avoid breaking installation if table exists but IF NOT EXISTS isn't supported (rare)
+				// But standard behavior is to throw if something goes really wrong.
+				// However, if table exists, IF NOT EXISTS handles it.
+				// If syntax error, we should log.
+				dol_syslog("Error creating table $table: " . $this->db->lasterror(), LOG_ERR);
 			}
 		}
 
@@ -148,19 +141,13 @@ class modApproval extends DolibarrModules
 		foreach ($cols_to_add as $table => $columns) {
 			foreach ($columns as $col => $def) {
 				// Standard SQL ADD COLUMN. We try to execute it.
-				// If it fails because column exists, we catch/ignore.
-				// This avoids "IF NOT EXISTS" syntax which might crash older Postgres versions if present.
 				$sql = "ALTER TABLE " . MAIN_DB_PREFIX . $table . " ADD COLUMN " . $col . " " . $def;
 
-				// Attempt to execute. Suppress error logs if possible or catch them.
-				// Dolibarr db->query usually logs errors.
-				// We can check if column exists first to be cleaner?
-				// Dolibarr doesn't have a lightweight "hasColumn" without DDL.
-				// So we just try/catch.
+				// Attempt to execute. Suppress error logs using 'suppress'
 				try {
-					$this->db->query($sql, 0, 'suppress'); // 'suppress' tells Dolibarr not to output errors if supported or we rely on return val
+					$this->db->query($sql, 0, 'suppress');
 				} catch (\Throwable $e) {
-					// Ignore "duplicate column" errors
+					// Ignore errors which might happen if column exists
 				}
 			}
 		}
