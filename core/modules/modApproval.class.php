@@ -99,26 +99,6 @@ class modApproval extends DolibarrModules
 			$this->db->query($sql);
 		}
 
-		// Add columns safely using DDL if available, or SQL
-		// Using raw SQL for ADD COLUMN is tricky across DBs due to IF NOT EXISTS syntax differences (Mysql 8 vs PG).
-		// But Dolibarr usually suppresses error if column exists.
-		// Let's try to use DDL if available, otherwise raw SQL.
-		// Actually, let's just use DDL object property access inside a try block or similar? No.
-		// Best approach for raw SQL add column:
-		// Postgres: ALTER TABLE table ADD COLUMN IF NOT EXISTS col type;
-		// Mysql: ALTER TABLE table ADD COLUMN col type; (fails if exists)
-
-		// To keep it simple and robust, we will check if column exists first.
-		// But I cannot easily check column existence without DDL helper.
-
-		// Revert to using DDL object but check existence.
-		// If DDL object is missing, we try to create it.
-		if (empty($this->db->ddl)) {
-			// Try to load DDL. In standard Dolibarr, it might be separate.
-			// But for now, let's assume raw SQL is safer for CREATE TABLE.
-			// For ADD COLUMN, we will use a helper function or just raw SQL with error suppression logic.
-		}
-
 		// Columns to add
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
 		$cols_to_add = [];
@@ -283,7 +263,8 @@ class modApproval extends DolibarrModules
         
         foreach ($elements as $elementtype => $fields) {
             foreach ($fields as $name => $params) {
-                $res = $extrafields->addExtraField($name, $params['label'], $params['type'], $params['pos'], '', $elementtype, 0, 0, '', '', 1, '', $user);
+                // Pass '' instead of $user to avoid Type Error
+                $res = $extrafields->addExtraField($name, $params['label'], $params['type'], $params['pos'], '', $elementtype, 0, 0, '', '', 1, '');
                  if ($res < 0) {
                     dol_syslog("Error creating extrafield ".$name." for ".$elementtype, LOG_ERR);
                  }
