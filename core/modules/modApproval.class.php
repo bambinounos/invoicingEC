@@ -87,7 +87,6 @@ class modApproval extends DolibarrModules
 			$this->error = $e->getMessage();
 			dol_syslog("Error remove approval: ".$this->error, LOG_ERR);
 			// Don't error out on remove, just log
-			// dol_print_error($this->db, $this->error);
 			if ($started_transaction) $this->db->rollback();
 			return -1;
 		} catch (\Exception $e) {
@@ -115,6 +114,7 @@ class modApproval extends DolibarrModules
 			$double_type = 'numeric(24,2)';
 		}
 
+		// Use raw SQL to avoid dependency on DDL object which might be missing
 		$tables = [
 			'order_info' => "rowid $rowid_type, ck_purpose integer NOT NULL DEFAULT 1, ck_invoice_number integer, ck_note_number integer, ck_alias text, ck_taxpayer text, ck_keep text, ck_microenterprise text, ck_agent text, ck_prefixmark text",
 			'user_info' => "rowid $rowid_type, fk_purpose integer NOT NULL DEFAULT 1, fk_invoice_number integer, fk_note_number integer, fk_vendor_number integer, fk_debit_number integer, fk_alias text, fk_taxpayer text, fk_keep text, fk_microenterprise text, fk_agent text",
@@ -129,6 +129,7 @@ class modApproval extends DolibarrModules
 			}
 		}
 
+		// Columns to add
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
 		$cols_to_add = [];
 		$cols_to_add['commande_fournisseur'] = ['claveacceso' => 'text'];
@@ -346,10 +347,33 @@ class modApproval extends DolibarrModules
         foreach ($elements as $elementtype => $fields) {
             $existing_fields = $extrafields->fetch_name_optionals_label($elementtype);
             if (is_array($existing_fields)) {
+				// We need to fetch attribute IDs, not just labels.
+				// $extrafields->fetch_name_optionals_label() loads attributes into $extrafields->attributes
+				// The structure is $extrafields->attributes[$elementtype]['rowid'][$code] = id; (wait, verify structure)
+				// Standard usage: fetch_name_optionals_label loads data.
+				// Then $extrafields->attributes[$elementtype]['rowid'] might be available?
+				// Actually, fetch_name_optionals_label populates $this->attributes[$elementtype]['label'] and ['type'] etc.
+				// It does NOT seem to populate 'rowid' key explicitly in older versions, but 'id' might be there?
+				// Let's rely on fetch_name_optionals_label to populate internal state, and then search.
+
+				// Re-read ExtraFields class if possible? I can't.
+				// But looking at code examples online:
+				// To delete, we need ID.
+				// We can query database directly if needed to be safe.
+
 				foreach ($fields as $fieldname) {
-					if (isset($existing_fields[$fieldname])) {
+					// Use direct SQL to find ID to be safe against API changes
+					$sql = "SELECT rowid FROM ".MAIN_DB_PREFIX.$elementtype."_extrafields WHERE name = '".$this->db->escape($fieldname)."'"; // Wait, table is llx_extrafields?
+					// No, table is llx_extrafields for global? No, each object has its own table?
+					// NO! Definition of extrafields is in llx_extrafields table.
+					// Values are in llx_element_extrafields.
+					// We need to delete from llx_extrafields.
+
+					$sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."extrafields WHERE name = '".$this->db->escape($fieldname)."' AND elementtype = '".$this->db->escape($elementtype)."'";
+					$res = $this->db->query($sql);
+					if ($res && $obj = $this->db->fetch_object($res)) {
 						try {
-							$extrafields->delete($existing_fields[$fieldname]['id']);
+							$extrafields->delete($obj->rowid);
 						} catch (\Throwable $e) {
 							// ignore
 						}
