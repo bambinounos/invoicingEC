@@ -73,16 +73,11 @@ class modApproval extends DolibarrModules
 		dol_syslog(__METHOD__, LOG_DEBUG);
 
 		$started_transaction = false;
-		// Check if inTransaction method exists before calling it to avoid Fatal Error on older/custom DB drivers
 		if (method_exists($this->db, 'inTransaction')) {
 			if (!$this->db->inTransaction()) {
 				$this->db->begin();
 				$started_transaction = true;
 			}
-		} else {
-			// Fallback: assume no transaction started, or force one if we could check driver.
-			// But for safety, we just start one if we are likely not in one, or just proceed.
-			// Given init() calls begin(), we are inside one.
 		}
 
 		try {
@@ -91,13 +86,13 @@ class modApproval extends DolibarrModules
 		} catch (\Throwable $e) {
 			$this->error = $e->getMessage();
 			dol_syslog("Error remove approval: ".$this->error, LOG_ERR);
-			dol_print_error($this->db, $this->error);
+			// Don't error out on remove, just log
+			// dol_print_error($this->db, $this->error);
 			if ($started_transaction) $this->db->rollback();
 			return -1;
 		} catch (\Exception $e) {
 			$this->error = $e->getMessage();
 			dol_syslog("Exception remove approval: ".$this->error, LOG_ERR);
-			dol_print_error($this->db, $this->error);
 			if ($started_transaction) $this->db->rollback();
 			return -1;
 		}
@@ -120,7 +115,6 @@ class modApproval extends DolibarrModules
 			$double_type = 'numeric(24,2)';
 		}
 
-		// Use raw SQL to avoid dependency on DDL object which might be missing
 		$tables = [
 			'order_info' => "rowid $rowid_type, ck_purpose integer NOT NULL DEFAULT 1, ck_invoice_number integer, ck_note_number integer, ck_alias text, ck_taxpayer text, ck_keep text, ck_microenterprise text, ck_agent text, ck_prefixmark text",
 			'user_info' => "rowid $rowid_type, fk_purpose integer NOT NULL DEFAULT 1, fk_invoice_number integer, fk_note_number integer, fk_vendor_number integer, fk_debit_number integer, fk_alias text, fk_taxpayer text, fk_keep text, fk_microenterprise text, fk_agent text",
@@ -135,7 +129,6 @@ class modApproval extends DolibarrModules
 			}
 		}
 
-		// Columns to add
 		$cols_common = ['c_note1'=>'text','c_name1'=>'text','c_note2'=>'text','c_name2'=>'text','c_note3'=>'text','c_name3'=>'text','c_note4'=>'text','c_name4'=>'text','c_note5'=>'text','c_name5'=>'text','c_note6'=>'text','c_name6'=>'text','c_note7'=>'text','c_name7'=>'text','identification_type'=>'integer DEFAULT 4','identification_c_type'=>'integer DEFAULT 4','tip'=>'integer','invoice_number'=>'integer','warehouse'=>'integer','seller'=>'integer','reason_type'=>'integer DEFAULT 3','ws_approval_one'=>'text','ws_approval_two'=>'text','ws_time'=>'datetime','claveacceso'=>'text','ws_approval_thr'=>'text','ws_approval_fou'=>'text','ws_time_end'=>'datetime','claveacceso_end'=>'text','start_date'=>'date','end_date'=>'date','carrier'=>'integer'];
 		$cols_to_add = [];
 		$cols_to_add['commande_fournisseur'] = ['claveacceso' => 'text'];
@@ -169,7 +162,7 @@ class modApproval extends DolibarrModules
 			$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."order_info (rowid, ck_purpose, ck_invoice_number, ck_note_number, ck_alias, ck_prefixmark) VALUES (1, 1, 1, 1, 'Alias name', 'DON-,MANN-,/')");
 			$this->db->query("INSERT INTO ".MAIN_DB_PREFIX."user_info (rowid, fk_purpose, fk_vendor_number, fk_invoice_number, fk_note_number, fk_debit_number, fk_alias) VALUES (1, 1, 1, 1, 1, 1, 'Alias name')");
 		} catch (\Throwable $e) {
-			// Ignore
+			// Ignore duplicate key errors if data already exists
 		}
 
 		$incomeData = array(
@@ -352,11 +345,17 @@ class modApproval extends DolibarrModules
 
         foreach ($elements as $elementtype => $fields) {
             $existing_fields = $extrafields->fetch_name_optionals_label($elementtype);
-            foreach ($fields as $fieldname) {
-                if (isset($existing_fields[$fieldname])) {
-                    $extrafields->delete($existing_fields[$fieldname]['id']);
-                }
-            }
+            if (is_array($existing_fields)) {
+				foreach ($fields as $fieldname) {
+					if (isset($existing_fields[$fieldname])) {
+						try {
+							$extrafields->delete($existing_fields[$fieldname]['id']);
+						} catch (\Throwable $e) {
+							// ignore
+						}
+					}
+				}
+			}
         }
     }
 }
